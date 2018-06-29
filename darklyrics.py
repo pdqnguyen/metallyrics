@@ -1,12 +1,14 @@
-from urllib.request import urlopen
-from bs4 import BeautifulSoup
+from utils import scrape_html
 import re
+import time
 
 BASEURL = 'http://www.darklyrics.com'
+CRAWLDELAY = 1
 
 def get_album_lyrics(album_name, album_url):
-    with urlopen(album_url) as album_page:
-        soup = BeautifulSoup(album_page, 'html.parser')
+    soup = scrape_html(album_url)
+    if soup is None:
+        return []
     songs = soup.find_all('h3')
     album_lyrics = {}
     for song in songs:
@@ -23,9 +25,11 @@ def get_album_lyrics(album_name, album_url):
     return album_lyrics
 
 def get_band_lyrics(band_name, verbose=False):
+    band_name = band_name.replace(' ', '').lower()
     band_url = BASEURL + '/' + band_name[0] + '/' + band_name + '.html'
-    with urlopen(band_url) as band_page:
-        soup = BeautifulSoup(band_page, 'html.parser')
+    soup = scrape_html(band_url)
+    if soup is None:
+        return []
     albums_html = soup.find_all('div', attrs={'class': 'album'})
     band_lyrics = {}
     for album in albums_html:
@@ -35,12 +39,15 @@ def get_band_lyrics(band_name, verbose=False):
             print(album_name, album_url)
         album_lyrics = get_album_lyrics(album_name, album_url)
         band_lyrics[album_name] = album_lyrics
+        time.sleep(CRAWLDELAY)
     return band_lyrics
 
 if __name__ == '__main__':
     import sys
+    import time
     bands_list = sys.arv[1]
     with open(bands_list) as f:
         band_names = f.readlines()
         for band_name in band_names:
             band_lyrics = get_band_lyrics(band_name)
+            time.sleep(CRAWLDELAY)
