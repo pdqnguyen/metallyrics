@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import re
+import os
 import time
 from urllib.parse import unquote
 from utils import scrape_json_all
@@ -12,6 +13,8 @@ MAXLENGTH = 14000
 CRAWLDELAY = 3
 
 t0 = time.time()
+if not os.path.exists('bands/'):
+    os.makedirs('bands/')
 for letter in LETTERS[2]:
     print('Letter: ' + letter)
     t1 = time.time()

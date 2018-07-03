@@ -3,7 +3,19 @@ import re
 import time
 
 BASEURL = 'http://www.darklyrics.com'
-CRAWLDELAY = 1
+CRAWLDELAY = 10
+
+def get_band_names(letter):
+    band_names_url = BASEURL + '/' + letter.lower() + '.html'
+    soup = scrape_html(band_names_url)
+    band_names = []
+    urls = [line['href'] for line in soup.find_all('a', href=True)]
+    for url in urls:
+        pattern = '(?<=' + letter.lower() + '\/)([a-z0-9]+)(?=\.html)'
+        match = re.search(pattern, url)
+        if match is not None:
+            band_names.append(match.group(0))
+    return band_names
 
 def get_album_lyrics(album_name, album_url):
     soup = scrape_html(album_url)

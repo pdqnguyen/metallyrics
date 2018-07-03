@@ -1,4 +1,5 @@
 import re
+import os
 import time
 import pandas as pd
 from utils import scrape_json_all
@@ -11,6 +12,8 @@ MAXLENGTH = 11000
 CRAWLDELAY = 3
 
 t0 = time.time()
+if not os.path.exists('ids/'):
+    os.makedirs('ids/')
 for letter in LETTERS[2]:
     print('Letter: ' + letter)
     t1 = time.time()
