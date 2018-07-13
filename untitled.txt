@@ -1,22 +1,12 @@
+from utils import scrape_html
 from urllib.request import urlopen
 from urllib.parse import quote_plus
 import pandas as pd
 import time
 import re
 
-from utils import scrape_html
-
 BASEURL = 'https://www.metal-archives.com/'
 CRAWLDELAY = 3
-
-def get_band_info(url):
-    soup = scrape_html(url)
-    name = soup.find('h1', attrs={'class': 'band_name'}).text
-    raw_info = soup.find('div', attrs={'id': 'band_stats'})
-    keys = raw_info.find_all('dt')
-    vals = raw_info.find_all('dd')
-    info = {key.text.replace(':', ''): val.text for key, val in zip(*(keys, vals))}
-    return info
 
 def get_song_dict(album_url):
     soup = scrape_html(album_url)
@@ -59,7 +49,6 @@ class Song(object):
         time.sleep(CRAWLDELAY)
         lyrics = soup.text.lower().split()
         assert ' '.join(lyrics) != '(lyrics not available)'
-        assert ' '.join(lyrics) != '(instrumental)'
         return cls(name, lyrics)
 
 class Album(object):
@@ -78,12 +67,8 @@ class Album(object):
         return [song.name for song in self.songs]
     
     @property
-    def rating(self):
-        tot = sum(self.reviews)
-        n = len(self.reviews)
-        rtg = (total - 50*n) / 50
-        # rtg = np.sign(rtg) * np.log1p(abs(rtg))
-        return rtg
+    def n_reviews(self):
+        return len(self.reviews)
     
     @classmethod
     def fetch(cls, band_name, album_name):
