@@ -1,21 +1,52 @@
 from urllib.request import urlopen
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote
 import pandas as pd
 import time
 import re
+import os
+import pickle
 
-from utils import scrape_html
+from utils import scrape_html, get_genres
 
 BASEURL = 'https://www.metal-archives.com/'
 CRAWLDELAY = 3
 
 def get_band_info(url):
     soup = scrape_html(url)
-    name = soup.find('h1', attrs={'class': 'band_name'}).text
     raw_info = soup.find('div', attrs={'id': 'band_stats'})
     keys = raw_info.find_all('dt')
     vals = raw_info.find_all('dd')
     info = {key.text.replace(':', ''): val.text for key, val in zip(*(keys, vals))}
+    info = {}
+    key_dict = {
+        'Country of origin': 'origin',
+        'Current label': 'label',
+        'Formed in': 'formation',
+        'Genre': 'genres',
+        'Location': 'location',
+        'Lyrical themes': 'themes',
+        'Years active': 'years'
+    }
+    for key, val in zip(*(keys, vals)):
+        strkey = key.text.replace(':', '')
+        if strkey in key_dict.keys():
+            info_key = key_dict[strkey]
+            info_val = val.text
+            if info_key == 'formation':
+                info[info_key] = int(info_val)
+            elif info_key == 'genres':
+                info[info_key] = get_genres(info_val)
+            elif info_key == 'years':
+                years_str = re.findall('[0-9\-]+', info_val)
+                years = []
+                for s in years_str:
+                    split = s.split('-')
+                    years.append(tuple(map(lambda x: None if x == '' else int(x), split)))
+                info[info_key] = years
+            elif info_key == 'themes':
+                info[info_key] = info_val.lower().split(', ')
+            else:
+                info[info_key] = info_val
     return info
 
 def get_song_dict(album_url):
@@ -81,7 +112,7 @@ class Album(object):
     def rating(self):
         tot = sum(self.reviews)
         n = len(self.reviews)
-        rtg = (total - 50*n) / 50
+        rtg = (tot - 50*n) / 50
         # rtg = np.sign(rtg) * np.log1p(abs(rtg))
         return rtg
     
@@ -134,9 +165,44 @@ class Band(object):
     @classmethod
     def fetch(cls, band_name, band_id):
         disco_url = BASEURL + 'band/discography/id/' + band_id + '/tab/all'
-        soup = scrape_html(disco_url)
-        disco = pd.read_html(str(soup.find('table')))[0]
+        disco_html = scrape_html(disco_url)
+        disco = pd.read_html(str(disco_html.find('table')))[0]
         disco = disco[~pd.isnull(disco['Reviews'])]
         disco = disco[disco['Type'] == 'Full-length']
         albums = [Album.fetch(band_name, album_name) for album_name in disco['Name']]
-        return cls(band_name, albums=albums)
+        new = cls(band_name, albums=albums)
+        band_name_url = quote_plus(band_name.replace(' ','_'))
+        band_url = BASEURL + 'bands/' + band_name_url + '/' + band_id
+        band_info = get_band_info(band_url)
+        for key, val in band_info.items():
+            setattr(new, key, val)
+        return new
+    
+    @classmethod
+    def load(cls, file):
+        with open(file, 'rb') as f:
+            new = pickle.load(f)
+        return new
+    
+    def save(self, file):
+        with open(file, 'wb') as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+def get_band(band_name, band_id, out_dir, verbose=False):
+    t0 = time.time()
+    band = Band.fetch(band_name, band_id)
+    band_name_url = quote_plus(band_name.replace(' ', '_'))
+    file = os.path.join(out_dir, band_name_url + '_' + band_id + '.pkl')
+    band.save(file)
+    t1 = time.time()
+    if verbose:
+        print('{} complete: {:.0f} s'.format(band_name, t1 - t0))
+
+if __name__ == '__main__':
+    import sys
+    band_df = pd.read_csv(sys.argv[1], names=['name', 'id'])
+    out_dir = sys.argv[2]
+    for idx, row in band_df.iterrows():
+        band_name = row['name']
+        band_id = str(row['id'])
+        get_band(band_name, band_id, out_dir, verbose=True)
