@@ -34,7 +34,7 @@ def scrape_html(url):
     return soup
 
 def get_genres(genre_string):
-    pattern = '[a-zA-Z]+'
+    pattern = '[a-zA-Z\-]+'
     genres = [match.lower() for match in re.findall(pattern, genre_string)]
     genres = sorted(set(genres))
     if 'metal' in genres:
