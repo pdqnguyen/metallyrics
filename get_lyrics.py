@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import os
 import pickle as pkl
 from argparse import ArgumentParser
@@ -25,7 +27,7 @@ for band in bands:
     try:
         basename = band.lower().replace(' ', '')
         lyrics = get_band_lyrics(basename, verbose=verbose)
-        if outdir is not None:
+        if outdir is not None and len(lyrics) > 0:
             filename = os.path.join(outdir, basename + '.pkl')
             with open(filename, 'wb') as f:
                 pkl.dump(lyrics, f, protocol=pkl.HIGHEST_PROTOCOL)
