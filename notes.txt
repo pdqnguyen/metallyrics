@@ -1,0 +1,28 @@
+2019-08-14
+
+Tuning Keras model hidden layers on 'genre_black' (batch_size=2, epochs=8)
+- No random oversampler
+- Tried single hidden layer of 10, 20, 40, then two-layer combos of 20, 30, 35, 40
+- Two-layer combos of 32, 44, 56, 68 (shouldn't be going much higher than ~50 based on https://stats.stackexchange.com/a/136542)
+- Best is n_1 = 40, n_2 = 30 (where n_i is num nodes in hidden layer i)
+- CV scores on all genres with above params look pretty good:
+    - black ... 82.8% +/- 4.4%
+    - death ... 77.3% +/- 2.7%
+    - doom ... 89.7% +/- 2.9%
+    - folk ... 93.5% +/- 2.8%
+    - heavy ... 89.4% +/- 2.2%
+    - power ... 89.8% +/- 2.5%
+    - progressive ... 90.0% +/- 3.0%
+    - thrash ... 84.5% +/- 2.2%
+    - other ... 92.6% +/- 2.2%
+- Re-ran grid search over batch sizes for genre_black and genre_folk with new model architecture
+    - batch_size = 4 or 8 wins (instead of 2 before)
+
+Word embeddings
+- Have to start over on combining dark lyrics and metallum data
+- Going back to keeping all languages, might switch to English only later
+
+
+2019-08-15
+
+Larger NN does not improve test accuracy
