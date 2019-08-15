@@ -26,3 +26,9 @@ Word embeddings
 2019-08-15
 
 Larger NN does not improve test accuracy
+
+Word embeddings
+- Basic tokenization of song lyrics
+- Not very good so far... ~60% CV balanced accuracy with epochs = 3, batch_size = 128
+- 50% balanced accuracy without oversampling!
+- Tried convolution w/o oversampling but not w/ yet....
