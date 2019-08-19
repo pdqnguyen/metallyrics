@@ -32,3 +32,12 @@ Word embeddings
 - Not very good so far... ~60% CV balanced accuracy with epochs = 3, batch_size = 128
 - 50% balanced accuracy without oversampling!
 - Tried convolution w/o oversampling but not w/ yet....
+- Nothing works, model keeps predicting all negatives (even w/ oversampling)
+
+Bag-of-words with songs instead of bands
+- A lot more samples (~10k songs instead of a few hundred bands)
+- Memory errors with full data; have to use fit_generator to train in smaller batches
+- Getting a lot of poor results, overfitting to 0
+- Switched to SMOTE oversampling b/c why not
+- Adding class weights w/ sklearn.utils.class_weight is too much (ended up classifying everything as 1)
+- 
