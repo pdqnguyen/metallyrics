@@ -10,11 +10,12 @@ LETTERS = 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z'.split(',')
 RESPONSELENGTH = 200
 MAXLENGTH = 11000
 CRAWLDELAY = 3
+OUTDIR = 'ids-test/'
 
 t0 = time.time()
-if not os.path.exists('ids/'):
-    os.makedirs('ids/')
-for letter in LETTERS[2]:
+if not os.path.exists(OUTDIR):
+    os.makedirs(OUTDIR)
+for letter in LETTERS[25]:
     print('Letter: ' + letter)
     t1 = time.time()
     url = BASEURL + letter + ENDURL
@@ -26,6 +27,6 @@ for letter in LETTERS[2]:
     band_id_most_reviews = review_counts.groupby(level=0).idxmax()
     band_ids = pd.DataFrame(list(band_id_most_reviews.values))
     band_ids.columns = ['name', 'id']
-    band_ids.to_csv('ids/ids' + letter + '.csv', index=False)
+    band_ids.to_csv(OUTDIR + 'ids' + letter + '.csv', index=False)
     print('Letter {} complete: {:.0f} seconds'.format(letter, time.time() - t1))
 print('Scraping complete: {:.0f} seconds'.format(time.time() - t0))

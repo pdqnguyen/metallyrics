@@ -5,6 +5,7 @@ import time
 import re
 import os
 import pickle
+import traceback
 
 from utils import scrape_html, get_genres
 
@@ -130,12 +131,12 @@ class Song(object):
     @classmethod
     def fetch(cls, name, song_id):
         song_url = BASEURL + 'release/ajax-view-lyrics/id/' + song_id
-        with urlopen(song_url) as conn:
-            soup = scrape_html(song_url)
+        soup = scrape_html(song_url)
         time.sleep(CRAWLDELAY)
-        lyrics = soup.text.lower().split()
-        assert ' '.join(lyrics) != '(lyrics not available)'
-        assert ' '.join(lyrics) != '(instrumental)'
+        lyrics = soup.text.strip()
+        assert lyrics.lower() != '(lyrics not available)', song_id + " lyrics not available"
+        if lyrics.lower() == '(instrumental)':
+            lyrics = ''
         return cls(name, lyrics)
 
 class Album(object):
@@ -156,11 +157,20 @@ class Album(object):
         self.name = name
         self.songs = songs
         self.reviews = reviews
-        self.lyrics = [word for song in self.songs for word in song.lyrics]
+        self.lyrics = [song.lyrics for song in self.songs]
     
-    def __getitem__(self, item):
-        index = self.song_names.index(item)
-        return self.songs[index]
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            song = self.songs[key]
+        elif isinstance(key, str):
+            if key in self.song_names:
+                index = self.song_names.index(key)
+                song = self.songs[index]
+            else:
+                raise KeyError(key)
+        else:
+            raise TypeError("album key must be int or str")
+        return song
     
     @property
     def song_names(self):
@@ -183,21 +193,24 @@ class Album(object):
         # Get song names and ids
         album_url = BASEURL + 'albums/' + band_name_url + '/' + album_name_url + '/' + album_id
         song_dict = get_song_dict(album_url)
+        time.sleep(CRAWLDELAY)
         # Fetch song lyrics
         songs = []
         for song_name, song_id in song_dict.items():
-            break
             if verbose:
                 print('fetching song ' + song_name)
             try:
                 song = Song.fetch(song_name, song_id)
-            except AssertionError:
-                continue
+            except:
+                if verbose:
+                    traceback.print_exc()
+                print(song_name + ' failed')
             else:
                 songs.append(song)
         # Get reviews
         reviews_url = album_url.replace('albums', 'reviews')
         reviews = get_reviews(reviews_url)
+        time.sleep(CRAWLDELAY)
         return cls(album_name, songs=songs, reviews=reviews)
 
 class Band(object):
@@ -222,18 +235,26 @@ class Band(object):
         self.name = name
         self.albums = albums
     
-    def __getitem__(self, item):
+    def __getitem__(self, key):
         try:
-            album_name, song_name = item
+            album_key, song_key = key
         except:
-            album_name = item
-            index = self.album_names.index(album_name)
-            album = self.albums[index]
+            album_key = key
+            song_key = None
+        if isinstance(album_key, int):
+            album = self.albums[album_key]
+        elif isinstance(album_key, str):
+            if album_key in self.album_names:
+                index = self.album_names.index(album_key)
+                album = self.albums[index]
+            else:
+                raise KeyError(album_key)
+        else:
+            raise TypeError("band keys must be int or str")
+        if song_key is None:
             return album
         else:
-            index = self.album_names.index(album_name)
-            album = self.albums[index]
-            song = album.__getitem__(song_name)
+            song = album[song_key]
             return song
     
     @property
@@ -245,6 +266,7 @@ class Band(object):
         disco_url = BASEURL + 'band/discography/id/' + band_id + '/tab/all'
         disco_html = scrape_html(disco_url)
         assert disco_html is not None
+        time.sleep(CRAWLDELAY)
         rows = disco_html.find('table').find_all('tr')
         albums = []
         for row in rows:
@@ -255,14 +277,21 @@ class Band(object):
                 if url is not None and rating is not None:
                     url_end = re.search('(?<=albums\/).*', url['href']).group(0)
                     _, album_name, album_id = url_end.split('/')
-                    album = Album.fetch(band_name, album_name, album_id, verbose=verbose)
-                    albums.append(album)
+                    try:
+                        album = Album.fetch(band_name, album_name, album_id, verbose=verbose)
+                    except:
+                        if verbose:
+                            traceback.print_exc()
+                        print(album + ' failed')
+                    else:
+                        albums.append(album)
         new = cls(band_name, albums=albums)
         band_name_url = quote_plus(band_name.replace(' ','_'))
         band_url = BASEURL + 'bands/' + band_name_url + '/' + band_id
         band_info = get_band_info(band_url)
         for key, val in band_info.items():
             setattr(new, key, val)
+        time.sleep(CRAWLDELAY)
         return new
     
     @classmethod
@@ -291,6 +320,8 @@ def get_band(band_name, band_id, out_dir, verbose=False):
     try:
         band = Band.fetch(band_name, band_id, verbose=verbose)
     except:
+        if verbose:
+            traceback.print_exc()
         print('{} failed.'.format(band_name))
         return
     band_name_url = quote_plus(band_name.replace(' ', '_'))
@@ -313,7 +344,7 @@ def get_bands(csv_name, out_dir, verbose=False):
     t0 = time.time()
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    band_df = pd.read_csv(csv_name, names=['name', 'id'])
+    band_df = pd.read_csv(csv_name)
     for idx, row in band_df.iterrows():
         band_name = row['name']
         band_id = str(row['id'])
@@ -324,5 +355,10 @@ def get_bands(csv_name, out_dir, verbose=False):
 
 if __name__ == '__main__':
     from metallum import Band
-    import sys
-    get_bands(sys.argv[1], sys.argv[2])
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("ids")
+    parser.add_argument("outdir")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False)
+    args = parser.parse_args()
+    get_bands(args.ids, args.outdir, verbose=args.verbose)
