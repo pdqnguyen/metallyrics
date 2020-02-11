@@ -1,69 +1,39 @@
-from utils import scrape_html
-import re
-import time
+#! /usr/bin/env python
 
-BASEURL = 'http://www.darklyrics.com'
-CRAWLDELAY = 10
+import os
+import pickle as pkl
+from argparse import ArgumentParser
+from traceback import print_exc
 
-# def get_band_names(letter):
-#     band_names_url = BASEURL + '/' + letter.lower() + '.html'
-#     soup = scrape_html(band_names_url)
-#     band_names = []
-#     urls = [line['href'] for line in soup.find_all('a', href=True)]
-#     for url in urls:
-#         pattern = '(?<=' + letter.lower() + '\/)([a-z0-9]+)(?=\.html)'
-#         match = re.search(pattern, url)
-#         if match is not None:
-#             band_names.append(match.group(0))
-#     return band_names
+from darklyrics import get_band_lyrics
 
-def get_album_lyrics(album_name, album_url):
-    soup = scrape_html(album_url)
-    if soup is None:
-        return []
-    songs = soup.find_all('h3')
-    album_lyrics = {}
-    for song in songs:
-        song_name = song.text
-        song_lyrics = []
-        for line in song.next_siblings:
-            if line.name is None:
-                s = str(line).strip().replace('"', '')
-                if s != '':
-                    song_lyrics.append(s)
-            elif line.name != 'br' and line.name != 'i':
-                break
-        album_lyrics[song_name] = song_lyrics
-    return album_lyrics
+parser = ArgumentParser()
+parser.add_argument("bands", nargs="*")
+parser.add_argument("-f", "--file")
+parser.add_argument("-o", "--outdir")
+parser.add_argument("-v", "--verbose", action="store_true", default=False)
+args = parser.parse_args()
 
-def get_band_lyrics(band_name, verbose=False):
-    band_name = band_name.replace(' ', '').lower()
-    band_url = BASEURL + '/' + band_name[0] + '/' + band_name + '.html'
-    soup = scrape_html(band_url)
-    if soup is None:
-        return []
-    albums_html = soup.find_all('div', attrs={'class': 'album'})
-    band_lyrics = {}
-    for i, album in enumerate(albums_html):
-        try:
-            album_name = album.find('strong').text.replace('"', '')
-        except Exception:
-            continue
-        album_url = BASEURL + album.find('a', href=True)['href'][2:-2]
-        if verbose:
-            print(album_name, album_url)
-        album_lyrics = get_album_lyrics(album_name, album_url)
-        band_lyrics[album_name] = album_lyrics
-        if i < len(albums_html) - 1:
-            time.sleep(CRAWLDELAY)
-    return band_lyrics
-
-if __name__ == '__main__':
-    import sys
-    import time
-    bands_list = sys.arv[1]
-    with open(bands_list) as f:
-        band_names = f.readlines()
-        for band_name in band_names:
-            band_lyrics = get_band_lyrics(band_name)
-            time.sleep(CRAWLDELAY)
+bands = args.bands
+file = args.file
+outdir = args.outdir
+verbose = args.verbose
+if file is not None:
+    with open(file) as f:
+        bands = [line.rstrip() for line in f.readlines()]
+for band in bands:
+    if verbose:
+        print(band)
+    try:
+        basename = band.lower().replace(' ', '')
+        lyrics = get_band_lyrics(basename, verbose=verbose)
+        if outdir is not None and len(lyrics) > 0:
+            filename = os.path.join(outdir, basename + '.pkl')
+            with open(filename, 'wb') as f:
+                pkl.dump(lyrics, f, protocol=pkl.HIGHEST_PROTOCOL)
+        else:
+            print(lyrics)
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        print_exc()
