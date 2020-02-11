@@ -1,16 +1,21 @@
+#! /usr/bin/env python
+
+import os
+import re
+import pickle
+import time
+import traceback
+from argparse import ArgumentParser
 from urllib.request import urlopen
 from urllib.parse import quote_plus, unquote
 import pandas as pd
-import time
-import re
-import os
-import pickle
-import traceback
 
-from utils import scrape_html, get_genres
+from utils import scrape_html
+
 
 BASEURL = 'https://www.metal-archives.com/'
 CRAWLDELAY = 3
+
 
 def get_band_info(url):
     """
@@ -62,6 +67,7 @@ def get_band_info(url):
                 info[info_key] = info_val
     return info
 
+
 def get_song_dict(album_url):
     """
     Get song names and corresponding song id numbers for a single album on metallum.
@@ -86,6 +92,7 @@ def get_song_dict(album_url):
             song_ids.append(tr.find('a')['name'])
     song_dict = dict(zip(*(song_names, song_ids)))
     return song_dict
+
 
 def get_reviews(reviews_url):
     """
@@ -114,6 +121,16 @@ def get_reviews(reviews_url):
                 reviews.append(pct)
     return reviews
 
+
+def get_genres(genre_string):
+    pattern = '[a-zA-Z\-]+'
+    genres = [match.lower() for match in re.findall(pattern, genre_string)]
+    genres = sorted(set(genres))
+    if 'metal' in genres:
+        genres.remove('metal')
+    return genres
+
+
 class Song(object):
     """
     Single song with lyrics.
@@ -138,6 +155,7 @@ class Song(object):
         if lyrics.lower() == '(instrumental)':
             lyrics = ''
         return cls(name, lyrics)
+
 
 class Album(object):
     """
@@ -212,6 +230,7 @@ class Album(object):
         reviews = get_reviews(reviews_url)
         time.sleep(CRAWLDELAY)
         return cls(album_name, songs=songs, reviews=reviews)
+
 
 class Band(object):
     """
@@ -304,6 +323,7 @@ class Band(object):
         with open(file, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+
 def get_band(band_name, band_id, out_dir, verbose=False):
     """
     Scrape metallum for a band and save as an instance of Band.
@@ -330,6 +350,8 @@ def get_band(band_name, band_id, out_dir, verbose=False):
     t1 = time.time()
     if verbose:
         print('{} complete: {:.0f} s'.format(band_name, t1 - t0))
+    return
+
 
 def get_bands(csv_name, out_dir, verbose=False):
     """
@@ -352,10 +374,10 @@ def get_bands(csv_name, out_dir, verbose=False):
         get_band(band_name, band_id, out_dir, verbose=verbose)
     dt = time.time() - t0
     print('Complete: {} minutes'.format(dt / 60.))
+    return
+
 
 if __name__ == '__main__':
-    from metallum import Band
-    from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("ids")
     parser.add_argument("outdir")
