@@ -10,7 +10,7 @@ from urllib.request import urlopen
 from urllib.parse import quote_plus, unquote
 import pandas as pd
 
-from utils import scrape_html
+from .utils import scrape_html
 
 
 BASEURL = 'https://www.metal-archives.com/'
