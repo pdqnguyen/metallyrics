@@ -4,347 +4,275 @@ import os
 import re
 import json
 import time
+import logging
 import traceback
+import warnings
 from argparse import ArgumentParser
 from urllib.request import urlopen
-from urllib.parse import quote_plus, unquote_plus
+from urllib.parse import urljoin, quote_plus, unquote_plus
 from urllib.request import urlopen, HTTPError, Request
 from bs4 import BeautifulSoup
 import pandas as pd
 
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'
+CRAWL_DELAY = 3  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'https://www.metal-archives.com/'
-CRAWLDELAY = 3
 
 
-def scrape_html(url, user_agent=USER_AGENT):
+class ScrapingError(Exception):
+    """Handle errors in scraping web pages
+    """
+    pass
+
+
+def scrape_html(url, user_agent=USER_AGENT, crawl_delay=CRAWL_DELAY):
     headers = {'User-Agent': user_agent}
-    req = Request(url=url, headers=headers)
     try:
+        req = Request(url=url, headers=headers)
         page = urlopen(req).read()
         soup = BeautifulSoup(page, 'html.parser')
-    except HTTPError:
-        print('url not found: ' + url)
-        soup = None
+    except (HTTPError, ValueError):
+        raise ScrapingError("invalid url " + str(url))
+    time.sleep(crawl_delay)
     return soup
 
 
 def get_band_info(url):
+    """Get basic info from band page
     """
-    Get info for a band on metallum.
-    
-    Parameters
-    ----------
-    url : str
-    
-    Returns
-    -------
-    info : dict
-    """
-    
     soup = scrape_html(url)
     raw_info = soup.find('div', attrs={'id': 'band_stats'})
     keys = raw_info.find_all('dt')
     vals = raw_info.find_all('dd')
-    info = {key.text.replace(':', ''): val.text for key, val in zip(*(keys, vals))}
-    info = {}
-    key_dict = {
-        'Country of origin': 'origin',
-        'Current label': 'label',
-        'Formed in': 'formation',
-        'Genre': 'genres',
-        'Location': 'location',
-        'Lyrical themes': 'themes',
-        'Years active': 'years'
-    }
-    for key, val in zip(*(keys, vals)):
-        info[key.text.replace(':', '')] = val.text
-#         strkey = key.text.replace(':', '')
-#         if strkey in key_dict.keys():
-#             info_key = key_dict[strkey]
-#             info_val = val.text
-#             if info_key == 'formation':
-#                 info[info_key] = int(info_val)
-#             elif info_key == 'genres':
-#                 info[info_key] = get_genres(info_val)
-#             elif info_key == 'years':
-#                 years_str = re.findall('[0-9\-]+', info_val)
-#                 years = []
-#                 for s in years_str:
-#                     split = s.split('-')
-#                     years.append(tuple(map(lambda x: None if x == '' else int(x), split)))
-#                 info[info_key] = years
-#             elif info_key == 'themes':
-#                 info[info_key] = info_val.lower().split(', ')
-#             else:
-#                 info[info_key] = info_val
+    try:
+        info = {key.text.replace(':', ''): val.text for key, val in zip(*(keys, vals))}
+    except:
+        logging.error("error while parsing band info")
     return info
 
 
-def get_song_urls(album_url):
+def get_discography(url, full_length_only=False):
+    """Get album info and links from discography table
     """
-    Get song names and corresponding song id numbers for a single album on metallum.
-    
-    Paramters
-    ---------
-    album_url : str
-    
-    Returns
-    -------
-    out : dict
-    """
-    
-    soup = scrape_html(album_url)
-    table = soup.find('table', attrs={'class': 'display table_lyrics'})
-    urls = []
+    def parse_review_str(s):
+        try:
+            num, avg = reviews.split()
+        except ValueError:
+            return 0, None
+        else:
+            num = int(num)
+            avg = int(avg.strip('()%'))
+            return num, avg
+    soup = scrape_html(url)
+    table = soup.find('table', attrs={'class': 'display discog'}).tbody
+    out = []
     for tr in table.find_all('tr'):
-        name_cell = tr.find('td', attrs={'class': 'wrapWords'})
-        link = tr.find('a')
-        if name_cell is not None and link is not None:
-            name = name_cell.text.strip()
-            id_ = link['name']
-            url = os.path.join(BASEURL, 'release/ajax-view-lyrics/id', id_)
-            urls.append((name, url))
-    return urls
-
-
-def get_reviews(reviews_url):
-    """
-    Get reviews (out of 100) for an album.
-    
-    Parameters
-    ----------
-    reviews_url : str
-    
-    Returns
-    -------
-    reviews : list
-    """    
-    
-    soup = scrape_html(reviews_url)
-    titles = soup.find_all(attrs={'class': 'reviewTitle'})
-    reviews = []
-    for title in titles:
-        match = re.search('([0-9]+)(?=\%)', title.text)
-        if match:
+        cells = tr.find_all('td')
+        if len(cells) == 4:
+            name_c, type_c, year_c, reviews_c = cells
             try:
-                pct = int(match.group(0))
-            except ValueError:
-                pass
-            else:
-                reviews.append(pct)
-    return reviews
-
-
-def get_genres(genre_string):
-    pattern = '[a-zA-Z\-]+'
-    genres = [match.lower() for match in re.findall(pattern, genre_string)]
-    genres = sorted(set(genres))
-    if 'metal' in genres:
-        genres.remove('metal')
-    return genres
-
-
-class Song(object):
-    """
-    Single song with lyrics.
-    """
-    
-    def __init__(self, name, lyrics=[]):
-        self.name = name
-        self.lyrics = lyrics
-    
-    @classmethod
-    def fetch(cls, name, url, verbose=False):
-        if verbose:
-            print("fetching song " + name)
-        soup = scrape_html(url)
-        time.sleep(CRAWLDELAY)
-        lyrics = soup.text.strip()
-        if lyrics.lower() == '(lyrics not available)':
-            raise ValueError(name + " lyrics not available")
-        elif lyrics.lower() == '(instrumental)':
-            lyrics = ''
-        return cls(name, lyrics)
-
-    def to_json(self):
-        return dict(name=self.name, lyrics=self.lyrics)
-
-
-class Album(object):
-    """
-    Class object for albums, containing songs, reviews, and lyrics.
-    """
-    
-    def __init__(self, name, songs=[], reviews=[]):
-        self.name = name
-        self.songs = songs
-        self.reviews = reviews
-        self.lyrics = [song.lyrics for song in self.songs]
-    
-    @property
-    def song_names(self):
-        return [song.name for song in self.songs]
-    
-    @property
-    def rating(self):
-        tot = sum(self.reviews)
-        n = len(self.reviews)
-        rtg = (tot - 50*n) / 50
-        # rtg = np.sign(rtg) * np.log1p(abs(rtg))
-        return rtg
-    
-    @classmethod
-    def fetch(cls, name, url, verbose=False):
-        if verbose:
-            print("fetching album " + name)
-        # Get song names and ids
-        song_urls = get_song_urls(url)
-        time.sleep(CRAWLDELAY)
-        # Fetch song lyrics
-        songs = []
-        for song_name, song_url in song_urls:
+                name = name_c.text.strip()
+                type_ = type_c.text.strip()
+                year = int(year_c.text.strip())
+                reviews = reviews_c.text.strip()
+                album_url = name_c.a['href']
+            except (AttributeError, TypeError):
+                logging.warning("error while parsing table from " + url)
+            # Skip non-full-length albums if desired
+            if full_length_only and type_ != 'Full-length':
+                continue
             try:
-                song = Song.fetch(song_name, song_url, verbose=verbose)
-            except KeyboardInterrupt:
-                raise
-            except:
-                if verbose:
-                    traceback.print_exc()
-                print(song_name + " failed")
+                reviews_url = reviews_c.a['href']
+            except (AttributeError, TypeError):
+                reviews_url = None
+            review_num, review_avg = parse_review_str(reviews)
+            info = dict(
+                name=name,
+                type=type_,
+                year=year,
+                review_num=review_num,
+                review_avg=review_avg,
+                url=album_url,
+                reviews_url=reviews_url
+            )
+            out.append(info)
+    return out
+
+
+def get_reviews(url):
+    """Get review titles, content, and dates for an album
+    """
+    soup = scrape_html(url)
+    out = []
+    for box in soup.find_all(attrs={'class': 'reviewBox'}):
+        title = box.find(attrs={'class': 'reviewTitle'})
+        content = box.find(attrs={'class': 'reviewContent'})
+        date = box.find('a', attrs={'class': 'profileMenu'})
+        try:
+            review = dict(
+                title=title.text.strip(),
+                content=content.text.strip(),
+                date=date.next.next.strip(', \n')
+            )
+        except AttributeError:
+            logging.warning("error while parsing review from " + url)
+        out.append(review)
+    return out
+
+
+def get_tracklist(url):
+    """Get song info and links from album page
+    """
+    soup = scrape_html(url)
+    table = soup.find('table', attrs={'class': 'display table_lyrics'}).tbody
+    out = []
+    for tr in table.find_all('tr'):
+        cells = tr.find_all('td')
+        if len(cells) == 4:
+            try:
+                name = cells[1].text.strip()
+                length = cells[2].text.strip()
+                lyrics = cells[3].text.strip()
+            except AttributeError:
+                logging.warning("error while parsing table from " + url)
+            if lyrics != '':
+                link = tr.find('a')
+                id_ = link['name']
+                song_url = urljoin(BASEURL, 'release/ajax-view-lyrics/id/' + id_)
             else:
-                songs.append(song)
-        # Get reviews
-        reviews_url = url.replace('albums', 'reviews')
-        reviews = get_reviews(reviews_url)
-        time.sleep(CRAWLDELAY)
-        return cls(name, songs=songs, reviews=reviews)
-
-    def to_json(self):
-        return dict(
-            name=self.name,
-            songs=[song.to_json() for song in self.songs],
-            song_names=self.song_names,
-            rating=self.rating
-        )
+                song_url = None
+            info = dict(
+                name=name,
+                length=length,
+                url=song_url
+            )
+            out.append(info)
+    return out
 
 
-class Band(object):
+def get_lyrics(url):
+    """Get lyrics for a song
     """
-    Object class for storing albums and band info for a single band.
-    """
-    
-    def __init__(self, name, albums=[], info={}):
-        self.name = name
-        self.albums = albums
-        self.info = info
-    
-    @property
-    def album_names(self):
-        return [album.name for album in self.albums]
-    
-    @classmethod
-    def fetch(cls, name, url, verbose=False):
-        if verbose:
-            print("fetching band " + name)
-        # Get band information
-        info = get_band_info(url)
-        # Scrape discography page for album URLs
-        id_ = os.path.split(url)[-1]
-        disco_url = os.path.join(BASEURL, 'band/discography/id', id_, 'tab/all')
-        disco_html = scrape_html(disco_url)
-        if disco_html is None:
-            raise ValueError("no discography found")
-        time.sleep(CRAWLDELAY)
-        rows = disco_html.find('table').find_all('tr')
-        albums = []
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) == 4:
-                album_link = cols[0].find('a', attrs={'class': 'album'})
-                rating = re.search('([0-9]+)(?=\%)', cols[3].text)
-                if album_link is not None and rating is not None:
-                    album_url = album_link['href']
-                    album_name = unquote_plus(album_url.rstrip('/').split('/')[-2])
-                    try:
-                        album = Album.fetch(album_name, album_url, verbose=verbose)
-                    except KeyboardInterrupt:
-                        raise
-                    except:
-                        if verbose:
-                            traceback.print_exc()
-                        print(album_name + ' failed')
-                    else:
-                        albums.append(album)
-        new = cls(name, albums=albums, info=info)
-        time.sleep(CRAWLDELAY)
-        return new
-
-    def save(self, file):
-        data = dict(
-            name=self.name,
-            albums=[album.to_json() for album in self.albums],
-            album_names=self.album_names,
-            info=self.info
-        )
-        with open(file, 'w') as f:
-            json.dump(data, f)
-        return
+    soup = scrape_html(url)
+    return soup.text.strip()
 
 
-def get_band(name, url, out_dir, verbose=False):
+def get_album(name, url):
+    """Get album info and song lyrics
     """
-    Scrape metallum for a band and save as an instance of Band.
-    
-    Parameters
-    ----------
-    band_name : str
-    band_id : str
-    out_dir : str
-    verbose : {False, True}, optional
-    """
-    
-    t0 = time.time()
+    # Get basic song info
     try:
-        band = Band.fetch(name, url, verbose=verbose)
-    except KeyboardInterrupt:
-        raise
-    except:
-        if verbose:
-            traceback.print_exc()
-        print('{} failed.'.format(name))
-        return
-    filename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
-    file = os.path.join(out_dir, filename)
-    band.save(file)
-    t1 = time.time()
-    if verbose:
-        print('{} complete: {:.0f} s'.format(name, t1 - t0))
-    return
+        songs = get_tracklist(url)
+    except ScrapingError:
+        logging.warning("error while loading album page: " + url, exc_info=1)
+        songs = []
+    # Get lyrics for each song
+    for song in songs:
+        if song['url'] is not None:
+            logging.info("fetching song " + song['name'])
+            try:
+                song['lyrics'] = get_lyrics(song['url'])
+            except ScrapingError:
+                logging.warning("error while loading song page: " + song['url'], exc_info=1)
+                song['lyrics'] = None
+        else:
+            logging.info("no lyrics found for song: " + song['name'])
+            song['lyrics'] = None
+    out = dict(
+        name=name,
+        url=url,
+        songs=songs,
+        song_names=[song['name'] for song in songs],
+    )
+    return out
 
 
-def main(csv_name, out_dir, verbose=False):
+def get_band(name, url, full_length_only=False):
+    """Get band info and albums/songs
     """
-    Download and save Band object for every band/id pair in csv.
+    t0 = time.time()
+    # Get basic band information
+    try:
+        info = get_band_info(url)
+    except ScrapingError:
+        logging.error("error encoutered while loading band page: " + url, exc_info=1)
+        raise
+    # Get basic album info
+    id_ = os.path.split(url)[-1]
+    disco_url = urljoin(BASEURL, 'band/discography/id/' + id_ + '/tab/all')
+    try:
+        albums = get_discography(disco_url, full_length_only=full_length_only)
+    except ScrapingError:
+        logging.warning("error while loading discography page: " + url, exc_info=1)
+        albums = []
+    # Get reviews and lyrics for each album
+    for album in albums:
+        logging.info("fetching album " + album['name'])
+        if album['reviews_url'] is not None:
+            try:
+                album['reviews'] = get_reviews(album['reviews_url'])
+            except ScrapingError:
+                logging.warning("error while loading reviews page: " + album['reviews_url'], exc_info=1)
+                album['reviews'] = []
+        else:
+            album['reviews'] = []
+        album_songs = get_album(album['name'], album['url'])
+        album.update(album_songs)
+    out = dict(
+        name=name,
+        id=id_,
+        url=url,
+        albums=albums,
+        album_names=[album['name'] for album in albums],
+        info=info
+    )
+    dt = time.time() - t0
+    logging.info("finished fetching {}".format(name, dt / 60.))
+    return out
+
+
+def main(filename, output, full_length_only=False, verbose=False):
+    """Download and save Band object for every band/id pair in csv.
     
     Parameters
     ----------
-    csv_name : str
-    out_dir : str
+    filename : str
+        Table of band names and id numbers collected by metallum_ids.py
+    output : str
+        Directory for .json output files
     """
-    
+    logging_level = (logging.INFO if verbose else logging.WARNING)
+    logger = logging.getLogger()
+    logger.setLevel(logging_level)
+    handler = logging.StreamHandler()
+    handler.setLevel(logging_level)
+    handler.setFormatter(
+        logging.Formatter('%(asctime)s - %(levelname)s --- %(message)s'))
+    logger.addHandler(handler)
     t0 = time.time()
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    band_df = pd.read_csv(csv_name)
+    if not os.path.exists(output):
+        os.makedirs(output)
+    band_df = pd.read_csv(filename)
     for idx, row in band_df.iterrows():
         name = row['name']
         id_ = str(row['id'])
-        url = os.path.join(BASEURL, 'bands', quote_plus(name), id_)
-        get_band(name, url, out_dir, verbose=verbose)
+        url = urljoin(BASEURL, 'bands/' + quote_plus(name) + '/' + id_)
+        logging.info("fetching band " + name)
+        try:
+            band = get_band(name, url, full_length_only=full_length_only)
+        except KeyboardInterrupt:
+            logging.error("scraping aborted by user", exc_info=1)
+            raise
+        except ScrapingError:
+            logging.info("failed to fetch " + name)
+        else:
+            basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
+            filename = os.path.join(output, basename)
+            with open(filename, 'w') as f:
+                json.dump(band, f)
     dt = time.time() - t0
-    print('Complete: {} minutes'.format(dt / 60.))
+    logging.info("finished fetching all bands: {:.0f} minutes".format(dt / 60.))
     return
 
 
@@ -352,6 +280,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("ids")
     parser.add_argument("outdir")
+    parser.add_argument("--full-length-only", action="store_true", default=False)
     parser.add_argument("-v", "--verbose", action="store_true", default=False)
     args = parser.parse_args()
-    main(args.ids, args.outdir, verbose=args.verbose)
+    main(args.ids, args.outdir, full_length_only=args.full_length_only, verbose=args.verbose)
