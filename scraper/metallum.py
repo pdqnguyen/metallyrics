@@ -266,7 +266,7 @@ class Band(object):
                 rating = re.search('([0-9]+)(?=\%)', cols[3].text)
                 if album_link is not None and rating is not None:
                     album_url = album_link['href']
-                    album_name = unquote_plus(url.rstrip('/').split('/')[-2])
+                    album_name = unquote_plus(album_url.rstrip('/').split('/')[-2])
                     try:
                         album = Album.fetch(album_name, album_url, verbose=verbose)
                     except KeyboardInterrupt:
