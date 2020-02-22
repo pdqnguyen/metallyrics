@@ -13,11 +13,13 @@ from urllib.parse import urljoin, quote_plus, unquote_plus
 from urllib.request import urlopen, HTTPError, Request
 from bs4 import BeautifulSoup
 import pandas as pd
+from tqdm import trange
 
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'
 CRAWL_DELAY = 3  # Time between accessing pages; be nice, don't lower this number
-BASEURL = 'https://www.metal-archives.com/'
+BASEURL = 'https://www.metal-archives.com'
+LOGFILE = 'scrape-metallum.log'
 
 
 class ScrapingError(Exception):
@@ -168,7 +170,8 @@ def get_album(name, url):
         logging.warning("error while loading album page: " + url, exc_info=1)
         songs = []
     # Get lyrics for each song
-    for song in songs:
+    for i in trange(len(songs), desc='fetching songs from "{}"'.format(name), leave=False):
+        song = songs[i]
         if song['url'] is not None:
             logging.info("fetching song " + song['name'])
             try:
@@ -207,7 +210,8 @@ def get_band(name, url, full_length_only=False):
         logging.warning("error while loading discography page: " + url, exc_info=1)
         albums = []
     # Get reviews and lyrics for each album
-    for album in albums:
+    for i in trange(len(albums), desc='fetching albums by {}'.format(name), leave=False):
+        album = albums[i]
         logging.info("fetching album " + album['name'])
         if album['reviews_url'] is not None:
             try:
@@ -232,7 +236,7 @@ def get_band(name, url, full_length_only=False):
     return out
 
 
-def main(filename, output, full_length_only=False, verbose=False):
+def main(filename, output, full_length_only=False):
     """Download and save Band object for every band/id pair in csv.
     
     Parameters
@@ -242,19 +246,26 @@ def main(filename, output, full_length_only=False, verbose=False):
     output : str
         Directory for .json output files
     """
-    logging_level = (logging.INFO if verbose else logging.WARNING)
+    loglevel = logging.INFO
+    logfile = os.path.abspath('scraper_metallum.log')
+    print("\nSCRAPING FROM {} WITH CRAWL DELAY {} SECONDS".format(BASEURL, CRAWL_DELAY))
+    print("PROGRESS WILL BE LOGGED IN {}\n".format(logfile))
+    if os.path.exists(logfile):
+        os.remove(logfile)
     logger = logging.getLogger()
-    logger.setLevel(logging_level)
-    handler = logging.StreamHandler()
-    handler.setLevel(logging_level)
-    handler.setFormatter(
+    logger.setLevel(loglevel)
+    file_handler = logging.FileHandler(logfile)
+    file_handler.setLevel(loglevel)
+    file_handler.setFormatter(
         logging.Formatter('%(asctime)s - %(levelname)s --- %(message)s'))
-    logger.addHandler(handler)
+    logger.addHandler(file_handler)
+    logger.addHandler(logging.StreamHandler(stream=None))   # suppress stdout
     t0 = time.time()
     if not os.path.exists(output):
         os.makedirs(output)
     band_df = pd.read_csv(filename)
-    for idx, row in band_df.iterrows():
+    for i in trange(len(band_df), desc="fetching bands from {}".format(filename)):
+        row = band_df.iloc[i]
         name = row['name']
         id_ = str(row['id'])
         url = urljoin(BASEURL, 'bands/' + quote_plus(name) + '/' + id_)
@@ -266,6 +277,7 @@ def main(filename, output, full_length_only=False, verbose=False):
             raise
         except ScrapingError:
             logging.info("failed to fetch " + name)
+            print("process aborted; see {} for full details".format(logfile))
         else:
             basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
             filename = os.path.join(output, basename)
@@ -281,6 +293,6 @@ if __name__ == '__main__':
     parser.add_argument("ids")
     parser.add_argument("outdir")
     parser.add_argument("--full-length-only", action="store_true", default=False)
-    parser.add_argument("-v", "--verbose", action="store_true", default=False)
+    parser.add_argument("--log-file", default=LOGFILE)
     args = parser.parse_args()
-    main(args.ids, args.outdir, full_length_only=args.full_length_only, verbose=args.verbose)
+    main(args.ids, args.outdir, full_length_only=args.full_length_only)
