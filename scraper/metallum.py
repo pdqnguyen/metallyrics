@@ -170,8 +170,13 @@ def get_album(name, url):
         logging.warning("error while loading album page: " + url, exc_info=1)
         songs = []
     # Get lyrics for each song
-    for i in trange(len(songs), desc='fetching songs from "{}"'.format(name), leave=False):
-        song = songs[i]
+    for k in trange(
+            len(songs),
+            desc='fetching songs from "{}"'.format(name),
+            # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
+            leave=False
+        ):
+        song = songs[k]
         if song['url'] is not None:
             logging.info("fetching song " + song['name'])
             try:
@@ -210,8 +215,13 @@ def get_band(name, url, full_length_only=False):
         logging.warning("error while loading discography page: " + url, exc_info=1)
         albums = []
     # Get reviews and lyrics for each album
-    for i in trange(len(albums), desc='fetching albums by {}'.format(name), leave=False):
-        album = albums[i]
+    for j in trange(
+            len(albums),
+            desc='fetching albums by {}'.format(name),
+            # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
+            leave=False
+        ):
+        album = albums[j]
         logging.info("fetching album " + album['name'])
         if album['reviews_url'] is not None:
             try:
@@ -246,7 +256,7 @@ def main(filename, output, full_length_only=False):
     output : str
         Directory for .json output files
     """
-    loglevel = logging.INFO
+    loglevel = logging.ERROR
     logfile = os.path.abspath('scraper_metallum.log')
     print("\nSCRAPING FROM {} WITH CRAWL DELAY {} SECONDS".format(BASEURL, CRAWL_DELAY))
     print("PROGRESS WILL BE LOGGED IN {}\n".format(logfile))
@@ -264,7 +274,13 @@ def main(filename, output, full_length_only=False):
     if not os.path.exists(output):
         os.makedirs(output)
     band_df = pd.read_csv(filename)
-    for i in trange(len(band_df), desc="fetching bands from {}".format(filename)):
+    logging.info("fetching bands from {}".format(filename))
+    t = trange(
+        len(band_df),
+        desc="fetching bands from {}".format(filename),
+        # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
+    )
+    for i in t:
         row = band_df.iloc[i]
         name = row['name']
         id_ = str(row['id'])
@@ -273,11 +289,16 @@ def main(filename, output, full_length_only=False):
         try:
             band = get_band(name, url, full_length_only=full_length_only)
         except KeyboardInterrupt:
+            t.close()
+            print()
             logging.error("scraping aborted by user", exc_info=1)
             raise
         except ScrapingError:
             logging.info("failed to fetch " + name)
-            print("process aborted; see {} for full details".format(logfile))
+            t.close()
+            print()
+            print("error while fetching band {}".format(name))
+            print("see {} for full details".format(logfile))
         else:
             basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
             filename = os.path.join(output, basename)
