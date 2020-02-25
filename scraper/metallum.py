@@ -1,4 +1,7 @@
 #! /usr/bin/env python
+"""
+Scrape Metal Archives for band/album/song information.
+"""
 
 import os
 import re
@@ -160,7 +163,7 @@ def get_lyrics(url):
     return soup.text.strip()
 
 
-def get_album(name, url):
+def get_album(name, url, omit_lyrics=False):
     """Get album info and song lyrics
     """
     # Get basic song info
@@ -170,23 +173,24 @@ def get_album(name, url):
         logging.warning("error while loading album page: " + url, exc_info=1)
         songs = []
     # Get lyrics for each song
-    for k in trange(
-            len(songs),
-            desc='fetching songs from "{}"'.format(name),
-            # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
-            leave=False
-        ):
-        song = songs[k]
-        if song['url'] is not None:
-            logging.info("fetching song " + song['name'])
-            try:
-                song['lyrics'] = get_lyrics(song['url'])
-            except ScrapingError:
-                logging.warning("error while loading song page: " + song['url'], exc_info=1)
+    if not omit_lyrics:
+        for k in trange(
+                len(songs),
+                desc='fetching songs from "{}"'.format(name),
+                # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
+                leave=False
+            ):
+            song = songs[k]
+            if song['url'] is not None:
+                logging.info("fetching song " + song['name'])
+                try:
+                    song['lyrics'] = get_lyrics(song['url'])
+                except ScrapingError:
+                    logging.warning("error while loading song page: " + song['url'], exc_info=1)
+                    song['lyrics'] = None
+            else:
+                logging.info("no lyrics found for song: " + song['name'])
                 song['lyrics'] = None
-        else:
-            logging.info("no lyrics found for song: " + song['name'])
-            song['lyrics'] = None
     out = dict(
         name=name,
         url=url,
@@ -196,7 +200,7 @@ def get_album(name, url):
     return out
 
 
-def get_band(name, url, full_length_only=False):
+def get_band(name, url, full_length_only=False, omit_lyrics=False):
     """Get band info and albums/songs
     """
     t0 = time.time()
@@ -231,7 +235,7 @@ def get_band(name, url, full_length_only=False):
                 album['reviews'] = []
         else:
             album['reviews'] = []
-        album_songs = get_album(album['name'], album['url'])
+        album_songs = get_album(album['name'], album['url'], omit_lyrics=omit_lyrics)
         album.update(album_songs)
     out = dict(
         name=name,
@@ -246,7 +250,7 @@ def get_band(name, url, full_length_only=False):
     return out
 
 
-def main(filename, output, full_length_only=False):
+def main(filename, output, full_length_only=False, omit_lyrics=False):
     """Download and save Band object for every band/id pair in csv.
     
     Parameters
@@ -287,7 +291,9 @@ def main(filename, output, full_length_only=False):
         url = urljoin(BASEURL, 'bands/' + quote_plus(name) + '/' + id_)
         logging.info("fetching band " + name)
         try:
-            band = get_band(name, url, full_length_only=full_length_only)
+            band = get_band(name, url,
+                            full_length_only=full_length_only,
+                            omit_lyrics=omit_lyrics)
         except KeyboardInterrupt:
             t.close()
             print()
@@ -314,6 +320,7 @@ if __name__ == '__main__':
     parser.add_argument("ids")
     parser.add_argument("outdir")
     parser.add_argument("--full-length-only", action="store_true", default=False)
-    parser.add_argument("--log-file", default=LOGFILE)
+    parser.add_argument("--omit-lyrics", action="store_true", default=False)
     args = parser.parse_args()
-    main(args.ids, args.outdir, full_length_only=args.full_length_only)
+    main(args.ids, args.outdir,
+         full_length_only=args.full_length_only, omit_lyrics=args.omit_lyrics)
