@@ -314,7 +314,7 @@ def main(filename, output, full_length_only=False, omit_lyrics=False):
             basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
             filename = os.path.join(output, basename)
             with open(filename, 'w') as f:
-                json.dump(band, f)
+                json.dump(band, f, indent=4)
     dt = time.time() - t0
     logger.info("finished fetching all bands: {:.0f} minutes".format(dt / 60.))
     return
