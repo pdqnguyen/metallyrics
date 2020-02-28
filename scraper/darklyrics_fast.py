@@ -106,7 +106,7 @@ def main(src, dest):
     """
     # Get Metal-Archives info scraped by `metallum.py`
     logging.info("Getting band info from .json files in directory " + src)
-    ma_filenames = [os.path.join(src, filename) for filename in os.listdir(src)][:10]
+    ma_filenames = [os.path.join(src, filename) for filename in os.listdir(src)]
     t_bands = trange(len(ma_filenames), desc="looping over bands")
     for i in t_bands:
         try:
