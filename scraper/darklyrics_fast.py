@@ -25,7 +25,7 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko
 PROXIES_URL = 'https://free-proxy-list.net/'
 USE_PROXIES = False
 SCRAPE_TIMEOUT = 5
-CRAWL_DELAY = 3  # Time between accessing pages; be nice, don't lower this number
+CRAWL_DELAY = 10  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'http://www.darklyrics.com'
 LETTERS = 'abcdefghijklmnopqrstuvwxyz'
 LOGFILE = os.path.abspath('scraper_darklyrics.log')
@@ -70,7 +70,8 @@ def scrape_html(url, proxy=None, user_agent=USER_AGENT, crawl_delay=CRAWL_DELAY,
         raise URLError(f"empty page {url}")
     except (HTTPError, ValueError, timeout):
         raise ScrapingError(f"invalid url {url}")
-    time.sleep(crawl_delay)
+    finally:
+        time.sleep(crawl_delay)
     return soup
 
 
