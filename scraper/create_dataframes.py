@@ -4,11 +4,14 @@ import json
 from argparse import ArgumentParser
 import pandas as pd
 
+from tqdm import trange
+
 DATA_DIR =  os.path.abspath("darklyrics-data/")
 
 def create_reviews_df(bands, filename):
     rows = []
-    for band in bands:
+    t = trange(len(bands), desc="looping over artists")
+    for band, i in zip(bands, t):
         band_data = dict(
             band_name=band['name'],
             band_id=band['id'],
@@ -44,7 +47,8 @@ def create_reviews_df(bands, filename):
 def create_songs_df(bands, filename):
     song_keys = ['name', 'length', 'url', 'darklyrics', 'darklyrics_url']
     rows = []
-    for band in bands:
+    t = trange(len(bands), desc="looping over artists")
+    for band, i in zip(bands, t):
         band_data = dict(
             band_name=band['name'],
             band_id=band['id'],
