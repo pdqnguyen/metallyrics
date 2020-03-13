@@ -1,22 +1,30 @@
-from argparse import ArgumentParser
 import os
 import re
-import time
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.rcParams['figure.facecolor'] = 'white'
+from argparse import ArgumentParser
+from copy import deepcopy
+
 import matplotlib.pyplot as plt
-from sklearn.metrics import balanced_accuracy_score, confusion_matrix, roc_curve, roc_auc_score
+import seaborn as sns
+sns.set(font_scale=2)
+
 from sklearn.model_selection import StratifiedKFold, KFold
-from keras import layers
-from keras.models import Sequential
-from keras.utils import Sequence
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.callbacks import EarlyStopping
+from sklearn.metrics import balanced_accuracy_score, confusion_matrix
+from sklearn.model_selection import StratifiedKFold, KFold
+
+from imblearn.over_sampling import RandomOverSampler, SMOTE
+
+from gensim.models import KeyedVectors
+
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-from gensim.models import KeyedVectors
+from keras.models import Sequential
+from keras import layers, optimizers
+from keras.callbacks import EarlyStopping
+from keras.utils import Sequence
+
+from multilabel import MultiLabelClassification
 
 
 # DEFAULTS
@@ -27,6 +35,7 @@ DEFAULT_KERNEL_SIZE = None
 DEFAULT_FULLY_CONNECTED_SIZE = None
 DEFAULT_EPOCHS = 1
 DEFAULT_BATCH_SIZE = 64
+DEFAULT_PATIENCE = 1
 
 
 def parse_args():
@@ -43,6 +52,7 @@ def parse_args():
                         nargs='+', type=int)
     parser.add_argument("-e", "--epochs", default=DEFAULT_EPOCHS, type=int)
     parser.add_argument("-b", "--batch-size", default=DEFAULT_BATCH_SIZE, type=int)
+    parser.add_argument("-p", "--patience", default=DEFAULT_PATIENCE, type=int)
     parser.add_argument("-v", "--verbose", default=False, action="store_true")
     return parser.parse_args()
 
@@ -73,8 +83,15 @@ def generate_word_embedding(tokenizer, word_vectors):
     return embedding_matrix
 
 
-def create_keras_model(embedding_matrix, input_length,
-                       nb_classes=1, conv_nb_filters=None, conv_kernel_size=None, fc_size=None):
+def create_keras_model(
+        embedding_matrix,
+        input_length,
+        nb_classes=1,
+        conv_nb_filters=None,
+        conv_kernel_size=None,
+        fc_size=None,
+        learning_rate=None,
+    ):
     keras_model = Sequential()
     keras_model.add(
         layers.Embedding(
@@ -98,8 +115,9 @@ def create_keras_model(embedding_matrix, input_length,
     if conv_nb_filters is None and fc_size is None:
         raise ValueError("No convolutional or fully connected layers provided")
     keras_model.add(layers.Dense(nb_classes, activation='sigmoid'))
+    optimizer = optimizers.Adam(lr=0.01)
     keras_model.compile(
-        optimizer='adam',
+        optimizer=optimizer,
         loss='binary_crossentropy',
         metrics=['binary_accuracy']
     )
@@ -122,107 +140,16 @@ class BatchGenerator(Sequence):
         return batch_X, batch_y
 
 
-class MultiLabelClassification:
-
-    def __init__(self, y_true, y_pred=None, y_pred_classes=None, labels=None, class_thresh=0.5):
-        self.true = y_true
-        if y_pred_classes is None and y_pred is not None:
-            self.pred = y_pred
-            y_pred_classes = np.zeros_like(self.pred, dtype=int)
-            y_pred_classes[self.pred > class_thresh] = 1
-        else:
-            self.pred = None
-        self.pred_classes = y_pred_classes
-        self.n_samples, self.n_labels = y_true.shape
-        if labels is not None:
-            if len(labels) == self.n_labels:
-                self.labels = np.array(labels)
-            else:
-                raise ValueError("length of labels and shape of y_true do not match")
-        else:
-            self.labels = np.arange(self.true.shape[1])
-
-    @property
-    def __intersection(self):
-        return self.true * self.pred_classes
-
-    @property
-    def __union(self):
-        return np.minimum(1, self.true + self.pred_classes)
-
-    @property
-    def accuracy_score(self):
-        # Number of labels in common / overall labels (true and predicted)
-        return np.nanmean(self.__intersection.sum(1) / self.__union.sum(1))
-
-    @property
-    def precision_score(self):
-        # Proportion of predicted labels that are correct
-        return np.nanmean(self.__intersection.sum(1) / self.pred_classes.sum(1))
-
-    @property
-    def recall_score(self):
-        # Proportion of true labels that were predicted
-        return np.nanmean(self.__intersection.sum(1) / self.true.sum(1))
-
-    @property
-    def f1_score(self):
-        # Harmonic mean of precision_score and recall_score
-        p = self.precision_score
-        r = self.recall_score
-        return 2 * (p * r) / (p + r)
-
-    def confusion_matrix(self, label=None, label_idx=None):
-        confusion_matrices = multilabel_confusion_matrix(self.true, self.pred_classes)
-        if label is not None:
-            return confusion_matrices[np.where(self.labels == label)[0][0]]
-        elif label_idx is not None:
-            return confusion_matrices[label_idx]
-        else:
-            return confusion_matrices
-
-    def print_report(self, verbose=0):
-        print("Multi-label classification report")
-        print("Accuracy:   {:.2f}".format(self.accuracy_score))
-        print("Precision:  {:.2f}".format(self.precision_score))
-        print("Recall:     {:.2f}".format(self.recall_score))
-        print("F1-score:   {:.2f}".format(self.f1_score))
-        if verbose == 1:
-            for label, matrix in zip(self.labels, self.confusion_matrix()):
-                print("===\nLabel: {}".format(label))
-                print(matrix)
-        return
-
-    def plot_roc_curve(self):
-        fig = plt.figure(figsize=(8, 6))
-        auc = []
-        for i, label in enumerate(self.labels):
-            true = self.true[:, i]
-            pred = self.pred[:, i]
-            fpr, tpr, thresholds = roc_curve(true, pred)
-            auc.append(roc_auc_score(true, pred))
-            plt.step(fpr, tpr, label=label)
-        plt.plot([0, 1], [0, 1], 'k--')
-        plt.gca().set_aspect('equal')
-        plt.xlim([0, 1])
-        plt.ylim([0, 1])
-        plt.title("ROC curve", size=20)
-        plt.xlabel("False positive rate", size=16)
-        plt.ylabel("True positive rate", size=16)
-        plt.legend(fontsize=16)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
-        plt.grid(alpha=0.5)
-        return fig, auc
-
-
 def main():
     args = parse_args()
-    df = pd.read_hdf(args.data, key='df', mode='r')
+    df = pd.read_csv('songs-ml-10pct.csv')
     X = df.pop('lyrics').values
     y = df.values
     genres = df.columns
     nb_classes = len(genres)
+    print(f"number of songs: {X.shape[0]}")
+    print(f"number of labels: {nb_classes}")
+    print(f"labels: {list(genres)}")
 
     # Output directory
     outdir = args.outdir
@@ -250,6 +177,9 @@ def main():
     # Training
     epochs = args.epochs
     batch_size = args.batch_size
+    early_stopping = EarlyStopping(
+        monitor='val_loss', mode='min', patience=args.patience,
+        restore_best_weights=True)
 
     scores = np.zeros((n_splits, nb_classes))
     confusion_matrices = np.zeros((n_splits, nb_classes, 2, 2))
@@ -267,7 +197,7 @@ def main():
             train_generator,
             validation_data=validation_generator,
             epochs=epochs,
-            callbacks=[EarlyStopping(monitor='val_loss', mode='min', patience=3, restore_best_weights=True)],
+            callbacks=[early_stopping],
         )
         y_pred = keras_model.predict(X_valid)
         y_pred_classes = y_pred.round().astype(int)
@@ -283,10 +213,34 @@ def main():
     pred = np.concatenate([res[1] for res in results])
     mlc = MultiLabelClassification(true, pred, labels=genres)
     mlc.print_report()
-    fig, auc_scores = mlc.plot_roc_curve()
+    fig = mlc.plot_roc_curve()
+    fig.savefig(os.path.join(outdir, "roc.png"))
+    fig = mlc.plot_precision_recall_curve()
+    fig.savefig(os.path.join(outdir, "precision_recall.png"))
+    auc_scores = mlc.roc_auc_score()
     print(auc_scores)
     print("AUC ROC score: {:.2f} +/- {:.2f}".format(np.mean(auc_scores), np.std(auc_scores)))
-    fig.savefig(os.path.join(outdir, "roc.png"))
+    best_thresholds = mlc.best_thresholds()
+    print("Best thresholds:")
+    for i, label in enumerate(mlc.labels):
+        print(f"{label:<10s}: {best_thresholds[i]:.2f}")
+
+    pred_classes = np.zeros(pred.shape).astype(int)
+    for i in range(nb_classes):
+        pred_classes[:, i] = (pred[:, i] > best_thresholds[i])
+
+    mlc = MultiLabelClassification(true, pred, y_pred_classes=pred_classes, labels=genres)
+    mlc.print_report()
+    scores = np.zeros((n_splits, nb_classes))
+    confusion_matrices = np.zeros((n_splits, nb_classes, 2, 2))
+    for i, (train_idx, valid_idx) in enumerate(kfold.split(X, y)):
+        for j in range(nb_classes):
+            scores[i, j] = balanced_accuracy_score(true[valid_idx, j], pred_classes[valid_idx, j])
+            confusion_matrices[i, j] = confusion_matrix(true[valid_idx, j], pred_classes[valid_idx, j])
+    print("-----\nCross-validation results using best thresholds")
+    print("CV score: {:.2f}% +/- {:.2f}%".format(scores.mean() * 100, scores.std() * 200))
+    print("Average confusion matrix:")
+    print(confusion_matrices.mean(axis=0) / confusion_matrices.sum() * n_splits)
     return
 
 
