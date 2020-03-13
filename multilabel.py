@@ -90,12 +90,10 @@ class MultiLabelClassification:
 
     def __init__(self, y_true, y_pred=None, y_pred_classes=None, labels=None, class_thresh=0.5):
         self.true = y_true.astype(int)
-        if y_pred_classes is None and y_pred is not None:
-            self.pred = y_pred
+        self.pred = y_pred
+        if y_pred_classes is None:
             y_pred_classes = np.zeros_like(self.pred, dtype=int)
             y_pred_classes[self.pred > class_thresh] = 1
-        else:
-            self.pred = None
         self.pred_classes = y_pred_classes
         self.n_samples, self.n_labels = y_true.shape
         if labels is not None:
@@ -154,6 +152,7 @@ class MultiLabelClassification:
             return confusion_matrices
 
     def print_report(self, verbose=0):
+        np.seterr(divide='ignore', invalid='ignore')
         print("Multi-label classification report:")
         print("Accuracy:      {:.2f}".format(self.accuracy_score))
         print("Precision:     {:.2f}".format(self.precision_score))
