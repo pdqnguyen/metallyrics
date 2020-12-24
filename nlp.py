@@ -5,6 +5,7 @@ import re
 import scipy
 
 from nltk.corpus import words as nltk_words
+from nltk.tokenize import RegexpTokenizer
 
 
 STOPWORDS_DIR = os.path.abspath('stopwords')
@@ -23,16 +24,25 @@ def get_stopwords(stopword_dir=STOPWORDS_DIR):
     return stopwords
 
 
-def tokenize(s, lower=True, alpha_only=True, english_only=True, stopwords=None):
-    words = s.split()
-    if lower:
-        words = [word.lower() for word in words]
-    if alpha_only:
-        word = [word for word in words if word.isalpha()]
-    if english_only:
-        words = [word for word in words if word in ENGLISH_WORDS]
-    if stopwords:
-        words = [word for word in words if word.lower() not in stopwords]
+# def tokenize(s, lower=True, alpha_only=True, english_only=True, stopwords=None):
+#     words = s.split()
+#     if lower:
+#         words = [word.lower() for word in words]
+#     if alpha_only:
+#         word = [word for word in words if word.isalpha()]
+#     if english_only:
+#         words = [word for word in words if word in ENGLISH_WORDS]
+#     if stopwords:
+#         words = [word for word in words if word.lower() not in stopwords]
+#     return words
+
+
+def tokenize(s):
+    tokenizer = RegexpTokenizer(r'[a-zA-Z\-\']+')
+    words = [w.lower()
+             .replace("'s", '')
+             .replace("in'", 'ing')
+             for w in tokenizer.tokenize(s)]
     return words
 
 
