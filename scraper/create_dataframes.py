@@ -3,10 +3,8 @@ import os
 import json
 from argparse import ArgumentParser
 import pandas as pd
-
 from tqdm import trange
 
-DATA_DIR =  os.path.abspath("darklyrics-data/")
 
 def create_reviews_df(bands, filename):
     rows = []
