@@ -1,12 +1,18 @@
+"""
+Script for fetching www.metal-archives.com id numbers of bands with more than 
+the minimum number of reviews.
+"""
+
+
 import re
 import os
 import requests
 import time
 from argparse import ArgumentParser
 import pandas as pd
+from fake_useragent import UserAgent
 
 
-USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'
 CRAWLDELAY = 3  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'http://www.metal-archives.com/review/ajax-list-browse/by/alpha/selection/'
 ENDURL = '/json/1'
@@ -29,9 +35,10 @@ def print_progress_bar(n, nmax, dt=None, length=20):
     print('\rscanning reviews: [{}] {}/{} entries {}'.format(bar, n, nmax, dt_str), end="\r")
 
 
-def scrape_json(url, start=0, responselength=100, user_agent=USER_AGENT):
+def scrape_json(url, start=0, responselength=100):
+    ua = UserAgent()
     payload = {'sEcho': 0, 'iDisplayStart': start, 'iDisplayLength': responselength}
-    headers = {'User-Agent': user_agent}
+    headers = {'User-Agent': ua.random}
     response = requests.get(url, params=payload, headers=headers).json()
     data = pd.DataFrame(response['aaData'])
     total = response['iTotalRecords']

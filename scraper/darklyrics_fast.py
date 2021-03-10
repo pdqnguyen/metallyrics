@@ -21,7 +21,6 @@ from tqdm import trange
 from fake_useragent import UserAgent
 
 
-USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'
 PROXIES_URL = 'https://free-proxy-list.net/'
 USE_PROXIES = False
 SCRAPE_TIMEOUT = 5
@@ -56,13 +55,14 @@ def configure_logger(
     return logger
 
 
-def scrape_html(url, proxy=None, user_agent=USER_AGENT, crawl_delay=CRAWL_DELAY, scrape_timout=SCRAPE_TIMEOUT):
+def scrape_html(url, proxy=None, crawl_delay=CRAWL_DELAY, scrape_timout=SCRAPE_TIMEOUT):
     try:
         if proxy is not None:
             req = Request(url=url)
             req.set_proxy(proxy['ip'] + ':' + proxy['port'], 'http')
         else:
-            req = Request(url=url, headers={'User-Agent': user_agent})
+            ua = UserAgent()
+            req = Request(url=url, headers={'User-Agent': ua.random})
         page = urlopen(req, timeout=scrape_timout).read()
         soup = BeautifulSoup(page, 'html.parser')
         assert len(soup.text) > 0
