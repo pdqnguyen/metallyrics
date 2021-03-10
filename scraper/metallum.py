@@ -15,9 +15,9 @@ from urllib.error import HTTPError
 from bs4 import BeautifulSoup
 import pandas as pd
 from tqdm import trange
+from fake_useragent import UserAgent
 
 
-USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'
 CRAWL_DELAY = 3  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'https://www.metal-archives.com'
 LOGFILE = os.path.abspath('scraper_metallum.log')
@@ -48,8 +48,9 @@ def configure_logger(
     return logger
 
 
-def scrape_html(url, user_agent=USER_AGENT, crawl_delay=CRAWL_DELAY):
-    headers = {'User-Agent': user_agent}
+def scrape_html(url, crawl_delay=CRAWL_DELAY):
+    ua = UserAgent()
+    headers = {'User-Agent': ua.random}
     try:
         req = Request(url=url, headers=headers)
         page = urlopen(req).read()
@@ -58,6 +59,55 @@ def scrape_html(url, user_agent=USER_AGENT, crawl_delay=CRAWL_DELAY):
         raise ScrapingError("invalid url " + str(url))
     time.sleep(crawl_delay)
     return soup
+
+
+def get_band(name, url, full_length_only=False, omit_lyrics=False):
+    """Get band info and albums/songs
+    """
+    t0 = time.time()
+    # Get basic band information
+    try:
+        info = get_band_info(url)
+    except ScrapingError:
+        logger.error("error encoutered while loading band page: " + url, exc_info=1)
+        raise
+    # Get basic album info
+    id_ = os.path.split(url)[-1]
+    disco_url = urljoin(BASEURL, 'band/discography/id/' + id_ + '/tab/all')
+    try:
+        albums = get_discography(disco_url, full_length_only=full_length_only)
+    except ScrapingError:
+        logger.warning("error while loading discography page: " + url, exc_info=1)
+        albums = []
+    # Get reviews and lyrics for each album
+    for j in trange(
+            len(albums),
+            desc='fetching albums by {}'.format(name),
+            leave=False
+    ):
+        album = albums[j]
+        logger.info("fetching album " + album['name'])
+        if album['reviews_url'] is not None:
+            try:
+                album['reviews'] = get_reviews(album['reviews_url'])
+            except ScrapingError:
+                logger.warning("error while loading reviews page: " + album['reviews_url'], exc_info=1)
+                album['reviews'] = []
+        else:
+            album['reviews'] = []
+        album_songs = get_album(album['name'], album['url'], omit_lyrics=omit_lyrics)
+        album.update(album_songs)
+    out = dict(
+        name=name,
+        id=id_,
+        url=url,
+        albums=albums,
+        album_names=[album['name'] for album in albums],
+        info=info
+    )
+    dt = time.time() - t0
+    logger.info("finished fetching {}".format(name, dt / 60.))
+    return out
 
 
 def get_band_info(url):
@@ -146,6 +196,42 @@ def get_reviews(url):
     return out
 
 
+def get_album(name, url, omit_lyrics=False):
+    """Get album info and song lyrics
+    """
+    # Get basic song info
+    try:
+        songs = get_tracklist(url)
+    except ScrapingError:
+        logger.warning("error while loading album page: " + url, exc_info=1)
+        songs = []
+    # Get lyrics for each song
+    if not omit_lyrics:
+        for k in trange(
+                len(songs),
+                desc='fetching songs from "{}"'.format(name),
+                leave=False
+        ):
+            song = songs[k]
+            if song['url'] is not None:
+                logger.info("fetching song " + song['name'])
+                try:
+                    song['lyrics'] = get_lyrics(song['url'])
+                except ScrapingError:
+                    logger.warning("error while loading song page: " + song['url'], exc_info=1)
+                    song['lyrics'] = None
+            else:
+                logger.info("no lyrics found for song: " + song['name'])
+                song['lyrics'] = None
+    out = dict(
+        name=name,
+        url=url,
+        songs=songs,
+        song_names=[song['name'] for song in songs],
+    )
+    return out
+
+
 def get_tracklist(url):
     """Get song info and links from album page
     """
@@ -184,93 +270,6 @@ def get_lyrics(url):
     return soup.text.strip()
 
 
-def get_album(name, url, omit_lyrics=False):
-    """Get album info and song lyrics
-    """
-    # Get basic song info
-    try:
-        songs = get_tracklist(url)
-    except ScrapingError:
-        logger.warning("error while loading album page: " + url, exc_info=1)
-        songs = []
-    # Get lyrics for each song
-    if not omit_lyrics:
-        for k in trange(
-                len(songs),
-                desc='fetching songs from "{}"'.format(name),
-                # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
-                leave=False
-        ):
-            song = songs[k]
-            if song['url'] is not None:
-                logger.info("fetching song " + song['name'])
-                try:
-                    song['lyrics'] = get_lyrics(song['url'])
-                except ScrapingError:
-                    logger.warning("error while loading song page: " + song['url'], exc_info=1)
-                    song['lyrics'] = None
-            else:
-                logger.info("no lyrics found for song: " + song['name'])
-                song['lyrics'] = None
-    out = dict(
-        name=name,
-        url=url,
-        songs=songs,
-        song_names=[song['name'] for song in songs],
-    )
-    return out
-
-
-def get_band(name, url, full_length_only=False, omit_lyrics=False):
-    """Get band info and albums/songs
-    """
-    t0 = time.time()
-    # Get basic band information
-    try:
-        info = get_band_info(url)
-    except ScrapingError:
-        logger.error("error encoutered while loading band page: " + url, exc_info=1)
-        raise
-    # Get basic album info
-    id_ = os.path.split(url)[-1]
-    disco_url = urljoin(BASEURL, 'band/discography/id/' + id_ + '/tab/all')
-    try:
-        albums = get_discography(disco_url, full_length_only=full_length_only)
-    except ScrapingError:
-        logger.warning("error while loading discography page: " + url, exc_info=1)
-        albums = []
-    # Get reviews and lyrics for each album
-    for j in trange(
-            len(albums),
-            desc='fetching albums by {}'.format(name),
-            # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
-            leave=False
-    ):
-        album = albums[j]
-        logger.info("fetching album " + album['name'])
-        if album['reviews_url'] is not None:
-            try:
-                album['reviews'] = get_reviews(album['reviews_url'])
-            except ScrapingError:
-                logger.warning("error while loading reviews page: " + album['reviews_url'], exc_info=1)
-                album['reviews'] = []
-        else:
-            album['reviews'] = []
-        album_songs = get_album(album['name'], album['url'], omit_lyrics=omit_lyrics)
-        album.update(album_songs)
-    out = dict(
-        name=name,
-        id=id_,
-        url=url,
-        albums=albums,
-        album_names=[album['name'] for album in albums],
-        info=info
-    )
-    dt = time.time() - t0
-    logger.info("finished fetching {}".format(name, dt / 60.))
-    return out
-
-
 def main(filename, output, full_length_only=False, omit_lyrics=False):
     """Download and save band data for every band/id pair in csv.
     
@@ -286,35 +285,39 @@ def main(filename, output, full_length_only=False, omit_lyrics=False):
     t0 = time.time()
     if not os.path.exists(output):
         os.makedirs(output)
-    band_df = pd.read_csv(filename)
+    band_ids = pd.read_csv(filename)
     logger.info("fetching bands from {}".format(filename))
     t = trange(
-        len(band_df),
-        desc="collecting artist data",
-        # bar_format="{desc} {percentage:3.0f}%|{bar:20}{r_bar}|",
+        len(band_ids),
+        desc="scraping metal-archives",
     )
     for i in t:
-        row = band_df.iloc[i]
+        row = band_ids.iloc[i]
         name = row['name']
         id_ = str(row['id'])
         url = urljoin(BASEURL, 'bands/' + quote_plus(name) + '/' + id_)
-        logger.info("fetching band " + name)
-        try:
-            band = get_band(name, url,
-                            full_length_only=full_length_only,
-                            omit_lyrics=omit_lyrics)
-        except KeyboardInterrupt:
-            t.close()
-            print()
-            logger.error("scraping aborted by user", exc_info=1)
-            sys.exit()
-        except ScrapingError:
-            logger.warning("failed to fetch " + name)
+        basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
+        filename = os.path.join(output, basename)
+        if os.path.exists(filename):
+            logger.warning("file already exists: " + filename)
+            time.sleep(0.01)  # tqdm doesn't progress if no time is spend
         else:
-            basename = '_'.join(url.rstrip('/').split('/')[-2:]) + '.json'
-            filename = os.path.join(output, basename)
-            with open(filename, 'w') as f:
-                json.dump(band, f, indent=4)
+            logger.info("fetching band " + name)
+            try:
+                band = get_band(name, url,
+                                full_length_only=full_length_only,
+                                omit_lyrics=omit_lyrics)
+            except KeyboardInterrupt:
+                t.close()
+                print()
+                logger.error("scraping aborted by user", exc_info=1)
+                sys.exit()
+            except ScrapingError:
+                logger.warning("failed to fetch " + name)
+            else:
+                logger.info("saving band to " + filename)
+                with open(filename, 'w') as f:
+                    json.dump(band, f, indent=4)
     dt = time.time() - t0
     logger.info("finished fetching all bands: {:.0f} minutes".format(dt / 60.))
     return
