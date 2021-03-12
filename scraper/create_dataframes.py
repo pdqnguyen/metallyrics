@@ -90,9 +90,9 @@ def main():
         else:
             input.append(inp)
     bands = [json.load(open(inp, 'r')) for inp in input]
-    if (args.which.strip().lower() == 'reviews'):
+    if args.which.strip().lower() == 'reviews':
         create_reviews_df(bands, args.output)
-    if (args.which.strip().lower() == 'songs'):
+    if args.which.strip().lower() == 'songs':
         create_songs_df(bands, args.output)
     return
 
