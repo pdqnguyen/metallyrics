@@ -25,7 +25,7 @@ def get_stopwords(stopword_dir=STOPWORDS_DIR):
 
 
 def tokenize(s, english_only=False, stopwords=None):
-    tokenizer = RegexpTokenizer(r'[a-zA-Z\-\']+')
+    tokenizer = RegexpTokenizer(r'[\w+\-\']+')
     words = [w.lower()
              .replace("'s", '')
              .replace("in'", 'ing')
