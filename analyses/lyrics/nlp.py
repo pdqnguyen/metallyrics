@@ -30,7 +30,7 @@ def tokenize(s, english_only=False, stopwords=None):
     words = [w.lower()
              .replace("'s", '')
              .replace("in'", 'ing')
-             for w in tokenizer.tokenize(s)]
+             for w in tokenizer.tokenize(s.strip())]
     if english_only:
         new_words = []
         for w in words:
@@ -44,6 +44,17 @@ def tokenize(s, english_only=False, stopwords=None):
     if stopwords is not None:
         words = [w for w in words if w not in stopwords]
     return words
+
+
+def lemmatize(tokens):
+    lemmas = []
+    for t in tokens:
+        lemma = wordnet.morphy(t)
+        if lemma is not None:
+            lemmas.append(lemma)
+        else:
+            lemmas.append(t)
+    return lemmas
 
 
 class Pipeline:
