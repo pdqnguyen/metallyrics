@@ -5,6 +5,7 @@ import re
 import scipy
 
 from nltk.corpus import words as nltk_words
+from nltk.corpus import wordnet
 from nltk.tokenize import RegexpTokenizer
 
 
@@ -31,7 +32,15 @@ def tokenize(s, english_only=False, stopwords=None):
              .replace("in'", 'ing')
              for w in tokenizer.tokenize(s)]
     if english_only:
-        words = [w for w in words if w in ENGLISH_WORDS]
+        new_words = []
+        for w in words:
+            lemma = wordnet.morphy(w)
+            if lemma is not None:
+                if lemma in ENGLISH_WORDS:
+                    new_words.append(w)
+            elif w in ENGLISH_WORDS:
+                new_words.append(w)
+        words = new_words
     if stopwords is not None:
         words = [w for w in words if w not in stopwords]
     return words
