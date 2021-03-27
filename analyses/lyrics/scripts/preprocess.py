@@ -104,7 +104,9 @@ def ml_dataset(data, genres):
 
 def main(config):
     with open(config, 'r') as f:
-        cfg = yaml.load(f, Loader=yaml.FullLoader)
+        cfg = yaml.safe_load(f)
+    if 'input' not in cfg.keys():
+        raise KeyError(f"missing key 'input' in '{config}'")
     df = pd.read_csv(cfg['input'], low_memory=False)
     df = df[~df.song_darklyrics.isnull()]
     df = df[df.song_darklyrics.str.strip().apply(len) > 0]
@@ -118,15 +120,18 @@ def main(config):
     df, genre_cols = create_genre_columns(df)
     print('Creating reduced datasets')
     for d in cfg.get('datasets', []):
-        df_r, top_genres = reduce_dataset(df, genre_cols, d['min_pct'])
-        df_r_ml = ml_dataset(df, top_genres)
-        df_r.to_csv(d['output'], index=False)
-        df_r_ml.to_csv(d['ml-output'], index=False)
+        if 'min_pct' in d.keys():
+            df_r, top_genres = reduce_dataset(df, genre_cols, d['min_pct'])
+            df_r_ml = ml_dataset(df, top_genres)
+            if 'output' in d.keys():
+                df_r.to_csv(d['output'], index=False)
+            if 'ml-output' in d.keys():
+                df_r_ml.to_csv(d['ml-output'], index=False)
     print('Done')
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('config')
+    parser.add_argument('config', help='.yaml file of parameters')
     args = parser.parse_args()
     main(args.config)
