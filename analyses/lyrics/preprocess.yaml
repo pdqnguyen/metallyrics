@@ -1,0 +1,8 @@
+input: 'songs.csv'
+datasets:
+  - min_pct: 0.01
+    output: 'songs-1pct.csv'
+    ml-output: 'songs-ml-1pct.csv'
+  - min_pct: 0.1
+    output: 'songs-10pct.csv'
+    ml-output: 'songs-ml-10pct.csv'
