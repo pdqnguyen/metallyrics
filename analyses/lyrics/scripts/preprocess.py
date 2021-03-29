@@ -33,10 +33,10 @@ def filter_english(data, min_english=MIN_ENGLISH):
         english_words = tokenize(text, english_only=True)
         is_english = len(english_words) > min_english * len(words)
         if is_english:
-            rows.append(row)
-            song_words.append(english_words)
+            rows.append(i)
+            song_words.append(' '.join(english_words))
     print('Non-English songs removed: ', len(data) - len(rows))
-    data = pd.DataFrame(rows, columns=data.columns)
+    data = data.loc[rows]
     data['song_words'] = song_words
     return data
 

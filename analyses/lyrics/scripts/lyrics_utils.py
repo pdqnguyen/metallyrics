@@ -1,4 +1,3 @@
-from ast import literal_eval
 from argparse import ArgumentParser
 import yaml
 import pandas as pd
@@ -18,5 +17,5 @@ def get_config():
 
 def load_songs(filepath):
     data = pd.read_csv(filepath)
-    data['words'] = data['song_words'].apply(literal_eval)
+    data['song_words'] = data['song_words'].str.split(' ')
     return data

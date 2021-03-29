@@ -31,7 +31,6 @@ def songs2albums(data):
         (
             album_groups[['band_name', 'band_genre']].first(),
             album_groups[[c for c in data.columns if 'genre_' in c]].first(),
-            album_groups['words'].sum(),
             album_groups[['word_count', 'word_count_uniq', 'word_rate', 'word_rate_uniq', 'seconds']].sum(),
         ),
         axis=1
@@ -48,7 +47,6 @@ def albums2bands(data):
         (
             band_groups[['band_name', 'band_genre']].first(),
             band_groups[[c for c in data.columns if 'genre_' in c]].first(),
-            band_groups['words'].sum(),
             band_groups[['word_count', 'word_count_uniq', 'word_rate', 'word_rate_uniq', 'seconds']].sum(),
         ),
         axis=1
@@ -73,9 +71,9 @@ def convert_seconds(series):
 
 
 def get_word_stats(data):
-    data['words_uniq'] = data['words'].apply(set)
+    data['words_uniq'] = data['song_words'].apply(set)
     data['seconds'] = convert_seconds(data['song_length'])
-    data['word_count'] = data['words'].apply(len)
+    data['word_count'] = data['song_words'].apply(len)
     data['word_count_uniq'] = data['words_uniq'].apply(len)
     data['word_rate'] = data['word_count'] / data['seconds']
     data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
@@ -142,7 +140,7 @@ def plot_box(data, column, title, filepath):
 
 
 def plot_genre_words(data, filepath):
-    plot_box(data, 'word_count', "Word counts", filepath)
+    plot_box(data, 'word_count', "Words per song", filepath)
 
 
 def plot_genre_word_rate(data, filepath):
@@ -150,7 +148,7 @@ def plot_genre_word_rate(data, filepath):
 
 
 def plot_genre_words_uniq(data, filepath):
-    plot_box(data, 'word_count_uniq', "Unique word counts", filepath)
+    plot_box(data, 'word_count_uniq', "Unique words per song", filepath)
 
 
 def plot_genre_word_rate_uniq(data, filepath):

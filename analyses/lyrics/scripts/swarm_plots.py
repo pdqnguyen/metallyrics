@@ -11,7 +11,6 @@ from matplotlib.path import get_path_collection_extents
 import seaborn as sns
 
 import lyrics_utils as utils
-from basic_plots import get_word_stats
 
 
 plt.style.use('seaborn')
@@ -28,7 +27,7 @@ def songs2bands(data):
         (
             data.groupby('band_id')['band_name'].first(),
             data.groupby(['band_id', 'album_name'])['album_review_num'].first().groupby('band_id').sum(),
-            data.groupby('band_id')['words'].sum(),
+            data.groupby('band_id')['song_words'].sum(),
             data.groupby('band_id')[['word_count']].sum()
         ),
         axis=1
@@ -108,7 +107,7 @@ def plot_swarm(data, names):
                 break
 
     ax.xaxis.tick_top()
-    ax.set_ylabel('')
+    ax.set_xlabel('')
 
     return fig
 
@@ -128,34 +127,32 @@ def plot_band_words(data, filepath, num_bands=None, num_words=None):
     plt.savefig(filepath)
 
 
+def plot_band_word_rate(data, filepath, num_bands=None, num_words=None):
+    data_short = data[data['word_count'] > num_words].copy()
+    top_reviewed_bands = data_short.sort_values('reviews')['name'][-num_bands:]
+    data_short = data_short.loc[top_reviewed_bands.index]
+    data_short['unique_first_words'] = data_short['words'].apply(uniq_first_words, args=(num_words,))
+    data_short = data_short.sort_values('unique_first_words')
+    fig = plot_swarm(data_short['unique_first_words'], data_short['name'])
+    fig.suptitle(f"# of unique words in first {num_words:,.0f} of artist's lyrics", fontsize=25)
+    plt.savefig(filepath)
+
+
 def main():
     cfg = utils.get_config()
     output = cfg['output']
     if not os.path.exists(output):
         os.mkdir(output)
-    songs_df = utils.load_songs(cfg['input'])
-    songs_df = get_word_stats(songs_df)
-    bands_df = songs2bands(songs_df)
-    print(len(bands_df))
+    song_df = utils.load_songs(cfg['input'])
+    song_df['word_count'] = song_df['song_words'].apply(len)
+    band_df = songs2bands(song_df)
+    print(len(band_df))
 
     plots = cfg.get('plots', {})
     for key, value in plots.items():
-        if key == 'band_words':
-            filepath = os.path.join(output, value.pop('filename'))
-            plot_band_words(bands_df, filepath, **value)
-        # num_words = value['num_words']
-        # num_bands = value['num_bands']
-        # filepath = os.path.join(output, value['filename'])
-        #
-        # bands_df_short = bands_df[bands_df['words'].apply(len) > num_words].copy()
-        # bands_df_short = bands_df_short.loc[bands_df_short.sort_values('reviews')['name'][-num_bands:].index]
-        # bands_df_short['unique_first_words'] = bands_df_short['words'].apply(lambda x: len(set(x[:num_words])))
-        # bands_df_short = bands_df_short.sort_values('unique_first_words')
-        # print(len(bands_df_short))
-        #
-        # fig = plot_swarm(bands_df_short['unique_first_words'], bands_df_short['name'])
-        # fig.suptitle(f"# of unique words in first {num_words:,.0f} of artist's lyrics", fontsize=25)
-        # plt.savefig(filepath)
+        plot_func = eval(f"plot_{key}")
+        filepath = os.path.join(output, value.pop('filename'))
+        plot_func(band_df, filepath, **value)
 
 
 if __name__ == '__main__':
