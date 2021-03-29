@@ -4,19 +4,16 @@ Plot basic properties of the data set
 
 
 import os
-import yaml
-from argparse import ArgumentParser
-from ast import literal_eval
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 
+import lyrics_utils as utils
+
 
 plt.style.use('seaborn')
-# sns.set(font_scale=2)
-
 plt.rcParams.update(
     {
         'figure.facecolor': 'white',
@@ -160,21 +157,19 @@ def plot_genre_word_rate_uniq(data, filepath):
     plot_box(data, 'word_rate_uniq', "Unique words per second", filepath)
 
 
-def main(config):
-    with open(config, 'r') as f:
-        cfg = yaml.safe_load(f)
-    output = cfg.pop('output', os.getcwd())
+def main():
+    cfg = utils.get_config()
+    output = cfg['output']
     if not os.path.exists(output):
         os.mkdir(output)
-    song_df = pd.read_csv(cfg.pop('input'))
-    song_df['words'] = song_df['song_words'].apply(literal_eval)
+    song_df = utils.load_songs(cfg['input'])
     song_df = get_word_stats(song_df)
     album_df = songs2albums(song_df)
     band_df = albums2bands(album_df)
     genre_cols = [c for c in band_df.columns if 'genre_' in c]
     columns = genre_cols + ['word_count', 'word_count_uniq', 'word_rate', 'word_rate_uniq']
     genre_df = song_df[columns].copy()
-    plots = cfg.pop('plots', {})
+    plots = cfg.get('plots', {})
 
     for key, value in plots.items():
         data_arg = key.split('_')[0] + '_df'
@@ -184,7 +179,4 @@ def main(config):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('config', help='config file')
-    args = parser.parse_args()
-    main(args.config)
+    main()
