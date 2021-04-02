@@ -71,82 +71,81 @@ variables = {
     'unique_words_per_second': 'Unique words per second',
 }
 
+dropdown_x = dcc.Dropdown(
+    id="dropdown_x",
+    options=[
+        {'label': v, 'value': k}
+        for k, v in variables.items()
+    ],
+    value='words_per_song',
+    clearable=False,
+    style={'width': '60%', 'verticalAlign': 'middle'}
+)
+
+dropdown_y = dcc.Dropdown(
+    id="dropdown_y",
+    options=[
+        {'label': v, 'value': k}
+        for k, v in variables.items()
+    ],
+    value='unique_words_per_song',
+    clearable=False,
+    style={'width': '60%', 'verticalAlign': 'middle'}
+)
+
+dropdown_z = dcc.Dropdown(
+    id="dropdown_z",
+    options=[
+        {'label': g.replace('genre_', ''), 'value': g}
+        for g in ['Show all'] + genres
+    ],
+    value='Show all',
+    clearable=False,
+    style={'verticalAlign': 'middle'}
+)
+
 app.layout = html.Div([
-    html.H1(f"{num_bands} most-reviewed artists"),
     html.Div(
         [
-            html.P(
-                "X-axis",
-                style={'margin-right': '2em'}
+            html.H1(f"{num_bands} most-reviewed artists"),
+            html.Div(
+                [
+                    html.P(
+                        "X-axis",
+                        style={'margin-right': '2em'}
+                    ),
+                    html.Div([dropdown_x], style={'width': '60%'})
+                ],
+                style={'display': 'flex'}
             ),
             html.Div(
                 [
-                    dcc.Dropdown(
-                        id="dropdown_x",
-                        options=[
-                            {'label': v, 'value': k}
-                            for k, v in variables.items()
-                        ],
-                        value='words_per_song',
-                        clearable=False,
-                        style={'width': '60%', 'verticalAlign': 'middle'}
-                    )
+                    html.P(
+                        "Y-axis",
+                        style={'margin-right': '2em'}
+                    ),
+                    html.Div([dropdown_y], style={'width': '60%'})
                 ],
-                style={'width': '60%'}
-            )
-        ],
-        style={'display': 'flex'}
-    ),
-    html.Div(
-        [
-            html.P(
-                "Y-axis",
-                style={'margin-right': '2em'}
+                style={'display': 'flex'}
             ),
             html.Div(
                 [
-                    dcc.Dropdown(
-                        id="dropdown_y",
-                        options=[
-                            {'label': v, 'value': k}
-                            for k, v in variables.items()
-                        ],
-                        value='unique_words_per_song',
-                        clearable=False,
-                        style={'width': '60%', 'verticalAlign': 'middle'}
-                    )
+                    html.P(
+                        "Filter by genre:",
+                        style={'margin-right': '2em'}
+                    ),
+                    html.Div([dropdown_z], style={'width': '30%'})
                 ],
-                style={'width': '60%'}
-            )
-        ],
-        style={'display': 'flex'}
-    ),
-    html.Div(
-        [
-            html.P(
-                "Filter by genre:",
-                style={'margin-right': '2em'}
+                style={'display': 'flex'}
             ),
-            html.Div(
-                [
-                    dcc.Dropdown(
-                        id="dropdown_z",
-                        options=[
-                            {'label': g.replace('genre_', ''), 'value': g}
-                            for g in ['Show all'] + genres
-                        ],
-                        value='Show all',
-                        clearable=False,
-                        style={'verticalAlign': 'middle'}
-                    )
-                ],
-                style={'width': '30%'}
-            )
+            dcc.Graph(id="graph"),
         ],
-        style={'display': 'flex'}
-    ),
-    dcc.Graph(id="graph"),
-])
+        style={
+            'width': '800px',
+            'font-family': 'Helvetica',
+        }
+    )
+], style={})
 
 
 @app.callback(
