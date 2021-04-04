@@ -1,0 +1,33 @@
+body {
+    background-color: #111111;
+    color: #EBEBEB;
+}
+
+.dropdown .VirtualizedSelectOption {
+    background-color: #111111;
+    color: #EBEBEB;
+}
+
+.dropdown .VirtualizedSelectFocusedOption {
+    background-color: #444444;
+    color: #EBEBEB;
+}
+
+.dropdown .VirtualizedSelectSelectedOption {
+    background-color: #444444;
+    color: #EBEBEB;
+}
+
+.dropdown .Select--single .Select-value-label {
+  color: #EBEBEB !important;
+}
+
+.dropdown .Select--multi .Select-value {
+  background-color: #2e5882;
+  border-color: #9ab8d6;
+  color: #EBEBEB;
+}
+
+.dropdown .Select--multi .Select-value-label {
+  color: #EBEBEB;
+}
