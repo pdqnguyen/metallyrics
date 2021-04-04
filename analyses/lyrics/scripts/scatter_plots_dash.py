@@ -1,5 +1,6 @@
-import os
-import pandas as pd
+"""
+Plotly dashboard showing scatter plot of various lyrical properties
+"""
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -67,8 +68,8 @@ def plot_scatter(data, x, y, filter_columns, union=True):
         showlegend=False,
         hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB', font_family='Monospace'),
         template='plotly_dark',
-        xaxis_title = features[x],
-        yaxis_title = features[y],
+        xaxis_title=features[x],
+        yaxis_title=features[y],
     )
     fig.update_xaxes(gridwidth=2, gridcolor='#444444')
     fig.update_yaxes(gridwidth=2, gridcolor='#444444')
@@ -76,9 +77,6 @@ def plot_scatter(data, x, y, filter_columns, union=True):
 
 
 cfg = utils.get_config()
-output = cfg['output']
-if not os.path.exists(output):
-    os.mkdir(output)
 band_df = utils.load_bands(cfg['input'])
 band_df = nlp.get_band_stats(band_df)
 num_bands = cfg['num_bands']
