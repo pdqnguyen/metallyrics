@@ -19,42 +19,6 @@ import nlp
 plt.switch_backend('Agg')
 
 
-def songs2bands(data):
-    genre_cols = [c for c in data.columns if 'genre_' in c]
-    out = pd.concat(
-        (
-            data.groupby('band_id')[['band_name', 'band_genre']].first(),
-            data.groupby(['band_id', 'album_name'])['album_review_num'].first().groupby('band_id').sum(),
-            data.groupby(['band_id', 'album_name'])['album_review_avg'].first().groupby('band_id').mean(),
-            data.groupby('band_id')['song_words'].sum(),
-            data.groupby('band_id')['word_count'].sum(),
-            data.groupby('band_id')[[
-                'word_count',
-                'word_count_uniq',
-                'seconds',
-                'word_rate',
-                'word_rate_uniq',
-            ]].mean(),
-            data.groupby('band_id')[genre_cols].first(),
-        ),
-        axis=1
-    )
-    out.columns = [
-        'name',
-        'genre',
-        'reviews',
-        'rating',
-        'words',
-        'word_count',
-        'words_per_song',
-        'unique_words_per_song',
-        'seconds_per_song',
-        'words_per_second',
-        'unique_words_per_second',
-    ] + genre_cols
-    return out
-
-
 def uniq_first_words(x, num_words):
     return len(set(x[:num_words]))
 
