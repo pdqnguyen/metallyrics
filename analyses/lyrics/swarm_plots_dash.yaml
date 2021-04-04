@@ -1,4 +1,4 @@
-input: songs-10pct.csv
+input: songs-1pct.csv
 num_words: 10000
 num_bands: 200
 fig_width: 20
