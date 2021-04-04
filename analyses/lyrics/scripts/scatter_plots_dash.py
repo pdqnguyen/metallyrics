@@ -17,6 +17,64 @@ def get_genre_label(data, col):
     return label
 
 
+def add_scatter(fig, data, x, y, opacity=1.0):
+    if data[x].max() - data[x].min() > 10:
+        x_template = '%{x:.0f}'
+    else:
+        x_template = '%{x:.3g}'
+    if data[y].max() - data[y].min() > 10:
+        y_template = '%{y:.0f}'
+    else:
+        y_template = '%{y:.3g}'
+    hovertemplate = '<b>%{customdata[0]}</b><br><br>'\
+                    'X: ' + x_template + '<br>'\
+                    'Y: ' + y_template + '<br>'\
+                    'Genre: %{customdata[1]}'
+    fig.add_trace(
+        go.Scatter(
+            mode='markers',
+            x=data[x],
+            y=data[y],
+            customdata=data[['name', 'genre']],
+            opacity=opacity,
+            marker=dict(
+                size=10,
+                color='#1f77b4',
+                line=dict(width=2, color='DarkSlateGray')
+            ),
+            hovertemplate=hovertemplate,
+            name='',
+        )
+    )
+
+
+def plot_scatter(data, x, y, filter_columns, union=True):
+    fig = go.Figure()
+    if len(filter_columns) > 0:
+        if union:
+            filt = (data[filter_columns] > 0).any(axis=1)
+        else:
+            filt = (data[filter_columns] > 0).all(axis=1)
+        bright = data[filt]
+        dim = data[~filt]
+        add_scatter(fig, bright, x, y)
+        add_scatter(fig, dim, x, y, opacity=0.15)
+    else:
+        add_scatter(fig, data, x, y)
+    fig.update_layout(
+        width=1200,
+        height=800,
+        showlegend=False,
+        hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB', font_family='Monospace'),
+        template='plotly_dark',
+        xaxis_title = features[x],
+        yaxis_title = features[y],
+    )
+    fig.update_xaxes(gridwidth=2, gridcolor='#444444')
+    fig.update_yaxes(gridwidth=2, gridcolor='#444444')
+    return fig
+
+
 cfg = utils.get_config()
 output = cfg['output']
 if not os.path.exists(output):
@@ -155,64 +213,6 @@ def display_plot(x, y, z, selection):
     if z is None:
         z = []
     fig = plot_scatter(band_df, x, y, z, union=(selection == 'union'))
-    return fig
-
-
-def add_scatter(fig, data, x, y, opacity=1.0):
-    if data[x].max() - data[x].min() > 10:
-        x_template = '%{x:.0f}'
-    else:
-        x_template = '%{x:.3g}'
-    if data[y].max() - data[y].min() > 10:
-        y_template = '%{y:.0f}'
-    else:
-        y_template = '%{y:.3g}'
-    hovertemplate = '<b>%{customdata[0]}</b><br><br>'\
-                    'X: ' + x_template + '<br>'\
-                    'Y: ' + y_template + '<br>'\
-                    'Genre: %{customdata[1]}'
-    fig.add_trace(
-        go.Scatter(
-            mode='markers',
-            x=data[x],
-            y=data[y],
-            customdata=data[['name', 'genre']],
-            opacity=opacity,
-            marker=dict(
-                size=10,
-                color='#1f77b4',
-                line=dict(width=2, color='DarkSlateGray')
-            ),
-            hovertemplate=hovertemplate,
-            name='',
-        )
-    )
-
-
-def plot_scatter(data, x, y, filter_columns, union=True):
-    fig = go.Figure()
-    if len(filter_columns) > 0:
-        if union:
-            filt = (data[filter_columns] > 0).any(axis=1)
-        else:
-            filt = (data[filter_columns] > 0).all(axis=1)
-        bright = data[filt]
-        dim = data[~filt]
-        add_scatter(fig, bright, x, y)
-        add_scatter(fig, dim, x, y, opacity=0.15)
-    else:
-        add_scatter(fig, data, x, y)
-    fig.update_layout(
-        width=1200,
-        height=800,
-        showlegend=False,
-        hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB', font_family='Monospace'),
-        template='plotly_dark',
-        xaxis_title = features[x],
-        yaxis_title = features[y],
-    )
-    fig.update_xaxes(gridwidth=2, gridcolor='#444444')
-    fig.update_yaxes(gridwidth=2, gridcolor='#444444')
     return fig
 
 
