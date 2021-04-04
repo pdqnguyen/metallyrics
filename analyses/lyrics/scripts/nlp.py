@@ -2,6 +2,7 @@ import glob
 import os
 import re
 
+import numpy as np
 import scipy
 
 from nltk.corpus import words as nltk_words
@@ -55,6 +56,31 @@ def lemmatize(tokens):
         else:
             lemmas.append(t)
     return lemmas
+
+
+def get_song_stats(data):
+    data['words_uniq'] = data['song_words'].apply(set)
+    data['word_count'] = data['song_words'].apply(len)
+    data['word_count_uniq'] = data['words_uniq'].apply(len)
+    data['word_rate'] = data['word_count'] / data['seconds']
+    data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
+    data.loc[data['word_rate'] == np.inf, 'word_rate'] = 0
+    data.loc[data['word_rate_uniq'] == np.inf, 'word_rate_uniq'] = 0
+    return data
+
+
+def get_band_stats(data):
+    data['words_uniq'] = data['words'].apply(set)
+    data['word_count'] = data['words'].apply(len)
+    data['word_count_uniq'] = data['words_uniq'].apply(len)
+    data['words_per_song'] = data['word_count'] / data['songs']
+    data['words_per_song_uniq'] = data['word_count_uniq'] / data['songs']
+    data['seconds_per_song'] = data['seconds'] / data['songs']
+    data['word_rate'] = data['word_count'] / data['seconds']
+    data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
+    data.loc[data['word_rate'] == np.inf, 'word_rate'] = 0
+    data.loc[data['word_rate_uniq'] == np.inf, 'word_rate_uniq'] = 0
+    return data
 
 
 class Pipeline:

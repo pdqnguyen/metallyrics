@@ -1,4 +1,4 @@
-input: songs-1pct.csv
+input: bands-1pct.csv
 output: output/scatter_plots/
-num_words: 15000
-num_bands: 150
+num_words: 10000
+num_bands: 200

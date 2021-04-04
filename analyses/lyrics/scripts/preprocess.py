@@ -15,10 +15,20 @@ import yaml
 from argparse import ArgumentParser
 
 from nlp import tokenize
+import lyrics_utils as utils
 
 
 MIN_ENGLISH = 0.6  # Songs with lower English word fraction are filtered out. Default is a little higher than 50% to
 # include songs with translations, whose lyrics typically include original and translated text
+
+
+def filter_missing(data):
+    """
+    Remove songs with missing lyrics
+    """
+    data = data[~data.song_darklyrics.isnull()]
+    data = data[data.song_darklyrics.str.strip().apply(len) > 0]
+    return data
 
 
 def filter_english(data, min_english=MIN_ENGLISH):
@@ -35,7 +45,7 @@ def filter_english(data, min_english=MIN_ENGLISH):
         if is_english:
             rows.append(i)
             song_words.append(' '.join(english_words))
-    print('Non-English songs removed: ', len(data) - len(rows))
+    print('Non-English songs removed:', len(data) - len(rows))
     data = data.loc[rows]
     data['song_words'] = song_words
     return data
@@ -47,17 +57,24 @@ def filter_copyright(data):
     """
     copyrighted = data.song_darklyrics.str.contains(
         'lyrics were removed due to copyright holder\'s request')
-    print('Songs with lyrics removed: ', len(data[copyrighted]))
+    print('Songs with lyrics removed:', len(data[copyrighted]))
     data = data[~copyrighted]
     return data
 
 
 def create_genre_columns(data):
-    song_genres = data.band_genre.apply(process_genre)
-    genres = sorted(set(song_genres.sum()))
+    """
+    Parse 'band_genres' column of data to generate individual genre columns
+    """
+    band_genres = data.band_genre.drop_duplicates()
+    song_genres = data.band_genre
+    band_genre_lists = band_genres.str.lower().str.findall('[\w\-]+(?![^(]*\))')
+    song_genre_lists = song_genres.str.lower().str.findall('[\w\-]+(?![^(]*\))')
+    band_genre_lists = band_genre_lists.apply(lambda x: [s for s in x if s != 'metal'])
+    genres = sorted(set(band_genre_lists.sum()))
     cols = [f'genre_{genre}' for genre in genres]
     for genre, col in zip(genres, cols):
-        data[col] = song_genres.apply(lambda x: int(genre in x))
+        data[col] = song_genre_lists.apply(lambda x: int(genre in x))
     return data, cols
 
 
@@ -77,7 +94,7 @@ def get_top_genres(data, min_pct):
     isolated = (data.sum(axis=1) == 1)
     isolated_cols = sorted(set(data[isolated].idxmax(axis=1)))
     top_cols = [col for col in isolated_cols if data[col][isolated].mean() >= min_pct]
-    top_genres = [re.sub(r"^genre\_", "", col) for col in top_cols]
+    top_genres = [col.replace('genre_', '') for col in top_cols]
     return top_genres
 
 
@@ -87,7 +104,7 @@ def reduce_dataset(data, cols, min_pct):
     """
     top_genres = get_top_genres(data[cols], min_pct)
     out = data.copy()
-    drop_cols = [col for col in data.columns if ('genre_' in col) and (re.sub(r"^genre\_", "", col) not in top_genres)]
+    drop_cols = [col for col in data.columns if ('genre_' in col) and (col.replace('genre_', '') not in top_genres)]
     out.drop(drop_cols, axis=1, inplace=True)
     return out, top_genres
 
@@ -97,8 +114,11 @@ def ml_dataset(data, genres):
     Generate `pd.DataFrame` with only lyrics and genre columns
     """
     out = pd.DataFrame(index=range(data.shape[0]), columns=['lyrics'] + genres)
-    out['lyrics'] = data['song_darklyrics'].reset_index(drop=True)
-    out[genres] = data[[f"genre_{genre}" for genre in genres]].reset_index(drop=True)
+    if 'song_darklyrics' in data.columns:
+        out['lyrics'] = data['song_darklyrics'].reset_index(drop=True)
+    elif 'lyrics' in data.columns:
+        out['lyrics'] = data['lyrics']
+    out[genres] = data[['genre_' + genre for genre in genres]].reset_index(drop=True)
     return out
 
 
@@ -108,19 +128,25 @@ def main(config):
     if 'input' not in cfg.keys():
         raise KeyError(f"missing key 'input' in '{config}'")
     df = pd.read_csv(cfg['input'], low_memory=False)
-    df = df[~df.song_darklyrics.isnull()]
-    df = df[df.song_darklyrics.str.strip().apply(len) > 0]
-    print('Songs: ', len(df))
+    print('Songs:', len(df))
     # Filter data
-    if cfg.get('filter_english', False):
-        df = filter_english(df)
-    if cfg.get('filter_copyright', False):
-        df = filter_copyright(df)
+    print('Filtering songs')
+    df = filter_missing(df)
+    df = filter_english(df)
+    df = filter_copyright(df)
+    # Create column for song lengths in seconds
+    print('Converting song lengths to seconds')
+    df['seconds'] = utils.convert_seconds(df['song_length'])
     print('Creating genre columns')
     df, genre_cols = create_genre_columns(df)
     print('Creating reduced datasets')
     for d in cfg.get('datasets', []):
         if 'min_pct' in d.keys():
+            data_type = d.get('type', 'songs')
+            if data_type == 'bands':
+                print('Combining songs into bands')
+                df = utils.songs2bands(df)
+                print('Bands:', len(df))
             df_r, top_genres = reduce_dataset(df, genre_cols, d['min_pct'])
             df_r_ml = ml_dataset(df, top_genres)
             if 'output' in d.keys():

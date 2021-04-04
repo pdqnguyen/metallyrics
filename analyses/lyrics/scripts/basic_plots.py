@@ -11,6 +11,7 @@ from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 
 import lyrics_utils as utils
+import nlp
 
 
 plt.style.use('seaborn')
@@ -68,18 +69,6 @@ def convert_seconds(series):
             seconds = 0
         out[i] = seconds
     return out
-
-
-def get_word_stats(data):
-    data['words_uniq'] = data['song_words'].apply(set)
-    data['seconds'] = convert_seconds(data['song_length'])
-    data['word_count'] = data['song_words'].apply(len)
-    data['word_count_uniq'] = data['words_uniq'].apply(len)
-    data['word_rate'] = data['word_count'] / data['seconds']
-    data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
-    data.loc[data['word_rate'] == np.inf, 'word_rate'] = 0
-    data.loc[data['word_rate_uniq'] == np.inf, 'word_rate_uniq'] = 0
-    return data
 
 
 def plot_word_hist(data, bins, category, filepath):
@@ -161,7 +150,7 @@ def main():
     if not os.path.exists(output):
         os.mkdir(output)
     song_df = utils.load_songs(cfg['input'])
-    song_df = get_word_stats(song_df)
+    song_df = nlp.get_song_stats(song_df)
     album_df = songs2albums(song_df)
     band_df = albums2bands(album_df)
     genre_cols = [c for c in band_df.columns if 'genre_' in c]

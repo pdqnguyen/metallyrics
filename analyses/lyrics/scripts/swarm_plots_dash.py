@@ -13,7 +13,7 @@ from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 
 import lyrics_utils as utils
-from basic_plots import get_word_stats
+import nlp
 
 
 plt.switch_backend('Agg')
@@ -96,6 +96,14 @@ def get_swarm_data(series, figsize, markersize):
 
 
 def add_scatter(fig, data, size, opacity=1.0):
+    if data['x'].max() - data['x'].min() > 10:
+        hovertemplate = '<b>%{customdata[0]}</b><br><br>'\
+                        'Value: %{x:.0f}<br>'\
+                        'Genre: %{customdata[1]}'
+    else:
+        hovertemplate = '<b>%{customdata[0]}</b><br><br>'\
+                        'Value: %{x:.3g}<br>'\
+                        'Genre: %{customdata[1]}'
     fig.add_trace(
         go.Scatter(
             mode='markers',
@@ -108,9 +116,7 @@ def add_scatter(fig, data, size, opacity=1.0):
                 color='#1f77b4',
                 line=dict(width=2, color='DarkSlateGray')
             ),
-            hovertemplate='<b>%{customdata[0]}</b><br><br>'
-                          'Value: %{x:.0f}<br>'
-                          'Genre: %{customdata[1]}',
+            hovertemplate=hovertemplate,
             name='',
         )
     )
@@ -140,7 +146,7 @@ def plot_scatter(data, filter_columns, sns_props, union=True):
         width=axsize[0],
         height=axsize[1],
         showlegend=False,
-        hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB'),
+        hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB', font_family='Monospace'),
         template='plotly_dark',
     )
     fig.update_xaxes(range=xlim, gridwidth=2, gridcolor='#444444', side='top')
@@ -153,9 +159,8 @@ app = dash.Dash(__name__)
 cfg = utils.get_config(required=('input',))
 figsize = (cfg['fig_width'], cfg['fig_height'])
 markersize = cfg['markersize']
-song_df = utils.load_songs(cfg['input'])
-song_df = get_word_stats(song_df)
-band_df = songs2bands(song_df)
+band_df = utils.load_bands(cfg['input'])
+band_df = nlp.get_band_stats(band_df)
 genres = [c for c in band_df.columns if 'genre_' in c]
 band_words = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
 
@@ -163,10 +168,10 @@ features = {
     'unique_first_words': f"Number of unique words in first {cfg['num_words']:,.0f} words",
     'word_count': 'Total number of words in discography',
     'words_per_song': 'Average words per song',
-    'unique_words_per_song': 'Average unique words per song',
+    'words_per_song_uniq': 'Average unique words per song',
     'seconds_per_song': 'Average song length in seconds',
-    'words_per_second': 'Average words per second',
-    'unique_words_per_second': f"Average unique words per second",
+    'word_rate': 'Average words per second',
+    'word_rate_uniq': f"Average unique words per second",
 }
 
 dropdown_feature = dcc.Dropdown(
@@ -206,7 +211,7 @@ app.layout = html.Div([
     html.Div(
         [
             html.H1(f"Lyrical Properties of the Top {cfg['num_bands']} Artists"),
-            html.P(f"This interactive graph shows the most-reviewed artists who have at least \
+            html.P(f"This interactive swarm plot shows the most-reviewed artists who have at least \
 {cfg['num_words']:,.0f} words in their collection of song lyrics."),
             html.Div(
                 [
@@ -217,7 +222,7 @@ app.layout = html.Div([
                     html.Div(
                         [dropdown_feature],
                         className='dropdown',
-                        style={'color': 'blue', 'width': '80%'}
+                        style={'width': '80%'}
                     )
                 ],
                 style={'width': '500px', 'display': 'flex'}

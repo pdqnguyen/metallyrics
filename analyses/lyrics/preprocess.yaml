@@ -1,10 +1,13 @@
 input: 'songs.csv'
-filter_english: true
-filter_copyright: true
 datasets:
   - min_pct: 0.01
+    type: 'songs'
     output: 'songs-1pct.csv'
     ml-output: 'songs-ml-1pct.csv'
+  - min_pct: 0.01
+    type: 'bands'
+    output: 'bands-1pct.csv'
   - min_pct: 0.1
+    type: 'songs'
     output: 'songs-10pct.csv'
     ml-output: 'songs-ml-10pct.csv'
