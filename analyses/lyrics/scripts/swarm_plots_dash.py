@@ -69,9 +69,8 @@ def get_band_words(data, num_bands=None, num_words=None):
     return data_short
 
 
-def get_swarm_data(series):
-    markersize = 20
-    fig = plt.figure(figsize=(25, 10))
+def get_swarm_data(series, figsize, markersize):
+    fig = plt.figure(figsize=figsize)
     ax = sns.swarmplot(x=series, size=markersize)
     swarm_pts = ax.collections[0].get_offsets()
     swarm_data = pd.DataFrame(
@@ -104,28 +103,28 @@ def add_scatter(fig, data, size, opacity=1.0):
                 line=dict(width=2, color='DarkSlateGray')
             ),
             hovertemplate='<b>%{customdata[0]}</b><br><br>'
-                          'Unique words: %{x:.0f}<br>'
+                          'Value: %{x:.0f}<br>'
                           'Genre: %{customdata[1]}',
             name='',
         )
     )
 
 
-def plot_scatter(data, filter_columns, sns_props, plotly_props):
+def plot_scatter(data, filter_columns, sns_props):
     xlim = sns_props['xlim']
     ylim = sns_props['ylim']
     axsize = sns_props['axsize']
-    markersize = sns_props['markersize']
+    size = sns_props['markersize']
 
     fig = go.Figure()
     if len(filter_columns) > 0:
         filt = (data[filter_columns] > 0).any(axis=1)
         bright = data[filt]
         dim = data[~filt]
-        add_scatter(fig, bright, markersize)
-        add_scatter(fig, dim, markersize, opacity=0.1)
+        add_scatter(fig, bright, size)
+        add_scatter(fig, dim, size, opacity=0.15)
     else:
-        add_scatter(fig, data, markersize)
+        add_scatter(fig, data, size)
 
     fig.update_layout(
         autosize=False,
@@ -135,17 +134,16 @@ def plot_scatter(data, filter_columns, sns_props, plotly_props):
         hoverlabel=dict(bgcolor='#730000', font_color='#EBEBEB'),
         template='plotly_dark',
     )
-    fig.update_xaxes(range=xlim)
-    fig.update_yaxes(range=ylim)
+    fig.update_xaxes(range=xlim, gridwidth=2, gridcolor='#444444', side='top')
+    fig.update_yaxes(range=ylim, gridwidth=2, gridcolor='#444444', tickvals=[0], ticktext=[''])
     return fig
 
 
 app = dash.Dash(__name__)
 
-cfg = utils.get_config()
-output = cfg['output']
-if not os.path.exists(output):
-    os.mkdir(output)
+cfg = utils.get_config(required=('input',))
+figsize = (cfg['fig_width'], cfg['fig_height'])
+markersize = cfg['markersize']
 song_df = utils.load_songs(cfg['input'])
 song_df = get_word_stats(song_df)
 band_df = songs2bands(song_df)
@@ -230,11 +228,11 @@ app.layout = html.Div([
     [Input("dropdown_attr", "value"), Input("dropdown_genre", "value")])
 def display_plot(attr, cols):
     band_words = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
-    swarm, swarm_props = get_swarm_data(band_words[attr])
+    swarm, swarm_props = get_swarm_data(band_words[attr], figsize=figsize, markersize=markersize)
     swarm_df = pd.concat((band_words, swarm), axis=1)
     if cols is None:
         cols = []
-    fig = plot_scatter(swarm_df, cols, swarm_props, dict(hover_name='name', orientation='h'))
+    fig = plot_scatter(swarm_df, cols, swarm_props)
     return fig
 
 
