@@ -20,6 +20,9 @@
 * Choose similarity measure: word embeddings?
 * Find out how to generate web diagram
 
+### Word cloud
+* copy from `lyrics2.ipynb`
+
 ---
 
 ## Machine Learning
