@@ -60,6 +60,7 @@ def get_swarm_data(series, figsize, markersize):
 
 
 def add_scatter(fig, data, size, opacity=1.0):
+    data['genre_split'] = data['genre'].str.wrap(25).apply(lambda x: x.replace('\n', '<br>'))
     if data['x'].max() - data['x'].min() > 10:
         hovertemplate = '<b>%{customdata[0]}</b><br><br>'\
                         'Value: %{x:.0f}<br>'\
@@ -73,7 +74,7 @@ def add_scatter(fig, data, size, opacity=1.0):
             mode='markers',
             x=data['x'],
             y=data['y'],
-            customdata=data[['name', 'genre']],
+            customdata=data[['name', 'genre_split']],
             opacity=opacity,
             marker=dict(
                 size=size,
@@ -118,128 +119,128 @@ def plot_scatter(data, filter_columns, sns_props, union=True):
     return fig
 
 
-app = dash.Dash(__name__)
+if __name__ == '__main__':
+    app = dash.Dash(__name__)
 
-cfg = utils.get_config(required=('input',))
-figsize = (cfg['fig_width'], cfg['fig_height'])
-markersize = cfg['markersize']
-band_df = utils.load_bands(cfg['input'])
-band_df = nlp.get_band_stats(band_df)
-genres = [c for c in band_df.columns if 'genre_' in c]
-band_words = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
+    cfg = utils.get_config(required=('input',))
+    figsize = (cfg['fig_width'], cfg['fig_height'])
+    markersize = cfg['markersize']
+    band_df = utils.load_bands(cfg['input'])
+    band_df = nlp.get_band_stats(band_df)
+    genres = [c for c in band_df.columns if 'genre_' in c]
+    band_words = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
 
-features = {
-    'unique_first_words': f"Number of unique words in first {cfg['num_words']:,.0f} words",
-    'word_count': 'Total number of words in discography',
-    'words_per_song': 'Average words per song',
-    'words_per_song_uniq': 'Average unique words per song',
-    'seconds_per_song': 'Average song length in seconds',
-    'word_rate': 'Average words per second',
-    'word_rate_uniq': f"Average unique words per second",
-}
+    features = {
+        'unique_first_words': f"Number of unique words in first {cfg['num_words']:,.0f} words",
+        'word_count': 'Total number of words in discography',
+        'words_per_song': 'Average words per song',
+        'words_per_song_uniq': 'Average unique words per song',
+        'seconds_per_song': 'Average song length in seconds',
+        'word_rate': 'Average words per second',
+        'word_rate_uniq': f"Average unique words per second",
+    }
 
-dropdown_feature = dcc.Dropdown(
-    id="dropdown_feature",
-    options=[
-        {'label': v, 'value': k}
-        for k, v in features.items()
-    ],
-    value=list(features.keys())[0],
-    clearable=False,
-    style={'background-color': '#111111', 'verticalAlign': 'middle'}
-)
-
-
-dropdown_genre = dcc.Dropdown(
-    id="dropdown_genre",
-    options=[
-        {'label': get_genre_label(band_words, g), 'value': g}
-        for g in genres
-    ],
-    clearable=False,
-    multi=True,
-    style={'background-color': '#111111', 'verticalAlign': 'middle'}
-)
-
-radio_genre = dcc.RadioItems(
-    id="radio_genre",
-    options=[
-        {'label': 'Match ANY selected genre', 'value': 'union'},
-        {'label': 'Match ALL selected genres', 'value': 'inter'},
-    ],
-    value='union',
-    labelStyle={'display': 'inline-block'}
-)
-
-app.layout = html.Div([
-    html.Div(
-        [
-            html.H1(f"Lyrical Properties of the Top {cfg['num_bands']} Artists"),
-            html.P(f"This interactive swarm plot shows the most-reviewed artists who have at least \
-{cfg['num_words']:,.0f} words in their collection of song lyrics."),
-            html.Div(
-                [
-                    html.P(
-                        "Plot feature:",
-                        style={'margin-right': '2em', 'width': '20%'}
-                    ),
-                    html.Div(
-                        [dropdown_feature],
-                        className='dropdown',
-                        style={'width': '80%'}
-                    )
-                ],
-                style={'width': '500px', 'display': 'flex'}
-            ),
-            html.Div(
-                [
-                    html.P(
-                        "Filter by genre:",
-                        style={'margin-right': '2em', 'width': '30%'}
-                    ),
-                    html.Div(
-                        [dropdown_genre],
-                        className='dropdown',
-                        style={'width': '70%'}
-                    )
-                ],
-                style={'width': '500px', 'display': 'flex'}
-            ),
-            html.Div(
-                [
-                    html.P(
-                        "Filter mode:",
-                        style={'margin-right': '2em', 'width': '20%'}
-                    ),
-                    html.Div(
-                        [radio_genre],
-                        className='radio',
-                        style={'width': '80%'}
-                    )
-                ],
-                style={'width': '500px', 'display': 'flex'}
-            ),
-            dcc.Graph(id="graph"),
+    dropdown_feature = dcc.Dropdown(
+        id="dropdown_feature",
+        options=[
+            {'label': v, 'value': k}
+            for k, v in features.items()
         ],
-        style={
-            'width': '800px',
-            'font-family': 'Helvetica',
-        }
+        value=list(features.keys())[0],
+        clearable=False,
+        style={'background-color': '#111111', 'verticalAlign': 'middle'}
     )
-], style={})
 
 
-@app.callback(
-    Output("graph", "figure"),
-    [Input("dropdown_feature", "value"), Input("dropdown_genre", "value"), Input("radio_genre", "value")])
-def display_plot(feature, cols, selection):
-    band_words_sorted = band_words.sort_values(feature)
-    swarm, swarm_props = get_swarm_data(band_words_sorted[feature], figsize=figsize, markersize=markersize)
-    swarm_df = pd.concat((band_words_sorted, swarm), axis=1)
-    if cols is None:
-        cols = []
-    fig = plot_scatter(swarm_df, cols, swarm_props, union=(selection == 'union'))
-    return fig
+    dropdown_genre = dcc.Dropdown(
+        id="dropdown_genre",
+        options=[
+            {'label': get_genre_label(band_words, g), 'value': g}
+            for g in genres
+        ],
+        clearable=False,
+        multi=True,
+        style={'background-color': '#111111', 'verticalAlign': 'middle'}
+    )
+
+    radio_genre = dcc.RadioItems(
+        id="radio_genre",
+        options=[
+            {'label': 'Match ANY selected genre', 'value': 'union'},
+            {'label': 'Match ALL selected genres', 'value': 'inter'},
+        ],
+        value='union',
+        labelStyle={'display': 'inline-block'}
+    )
+
+    app.layout = html.Div([
+        html.Div(
+            [
+                html.H1(f"Lyrical Properties of the Top {cfg['num_bands']} Artists"),
+                html.P(f"This interactive swarm plot shows the most-reviewed artists who have at least \
+    {cfg['num_words']:,.0f} words in their collection of song lyrics."),
+                html.Div(
+                    [
+                        html.P(
+                            "Plot feature:",
+                            style={'margin-right': '2em', 'width': '20%'}
+                        ),
+                        html.Div(
+                            [dropdown_feature],
+                            className='dropdown',
+                            style={'width': '80%'}
+                        )
+                    ],
+                    style={'width': '500px', 'display': 'flex'}
+                ),
+                html.Div(
+                    [
+                        html.P(
+                            "Filter by genre:",
+                            style={'margin-right': '2em', 'width': '30%'}
+                        ),
+                        html.Div(
+                            [dropdown_genre],
+                            className='dropdown',
+                            style={'width': '70%'}
+                        )
+                    ],
+                    style={'width': '500px', 'display': 'flex'}
+                ),
+                html.Div(
+                    [
+                        html.P(
+                            "Filter mode:",
+                            style={'margin-right': '2em', 'width': '20%'}
+                        ),
+                        html.Div(
+                            [radio_genre],
+                            className='radio',
+                            style={'width': '80%'}
+                        )
+                    ],
+                    style={'width': '500px', 'display': 'flex'}
+                ),
+                dcc.Graph(id="graph"),
+            ],
+            style={
+                'width': '800px',
+                'font-family': 'Helvetica',
+            }
+        )
+    ], style={})
 
 
-app.run_server(debug=True)
+    @app.callback(
+        Output("graph", "figure"),
+        [Input("dropdown_feature", "value"), Input("dropdown_genre", "value"), Input("radio_genre", "value")])
+    def display_plot(feature, cols, selection):
+        band_words_sorted = band_words.sort_values(feature)
+        swarm, swarm_props = get_swarm_data(band_words_sorted[feature], figsize=figsize, markersize=markersize)
+        swarm_df = pd.concat((band_words_sorted, swarm), axis=1)
+        if cols is None:
+            cols = []
+        fig = plot_scatter(swarm_df, cols, swarm_props, union=(selection == 'union'))
+        return fig
+
+    app.run_server(debug=True)
