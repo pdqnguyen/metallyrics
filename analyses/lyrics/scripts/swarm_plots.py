@@ -36,12 +36,13 @@ def songs2bands(data):
     return out
 
 
-def get_bboxes(sc, ax):
+def get_bboxes(ax):
     """
     Copied from:
     https://stackoverflow.com/questions/55005272/get-bounding-boxes-of-individual-elements-of-a-pathcollection-from-plt-scatter
     Returns a list of bounding boxes in data coordinates for a scatter plot
     """
+    sc = ax.collections[0]
     ax.figure.canvas.draw() # need to draw before the transforms are set.
     transform = sc.get_transform()
     transOffset = sc.get_offset_transform()
@@ -86,8 +87,7 @@ def plot_swarm(data, names):
     ax = sns.swarmplot(x=data, size=30, zorder=1)
 
     # Get bounding boxes of scatter points
-    cs = ax.collections[0]
-    boxes = get_bboxes(cs, ax)
+    boxes = get_bboxes(ax)
 
     # Add text to circles
     for i, box in enumerate(boxes):
@@ -146,7 +146,6 @@ def main():
     song_df = utils.load_songs(cfg['input'])
     song_df['word_count'] = song_df['song_words'].apply(len)
     band_df = songs2bands(song_df)
-    print(len(band_df))
 
     plots = cfg.get('plots', {})
     for key, value in plots.items():
