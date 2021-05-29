@@ -17,11 +17,13 @@
 * Try combined lyrical complexity measures
 
 ### Map of bands connected by lyrical similarity!!!
-* Choose similarity measure: word embeddings?
-* Find out how to generate web diagram
+* Choose similarity measure: word embeddings? Cosine similarity with Tf-Idf vectorization
+  works pretty well.
+* How to make Gephi output prettier, how to color genres?
 
 ### Word cloud
-* copy from `lyrics2.ipynb`
+* Copy from `lyrics2.ipynb`
+* Dash app for generating word clouds for artists or genre label combos
 
 ---
 
