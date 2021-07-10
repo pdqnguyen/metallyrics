@@ -1,5 +1,6 @@
 input: songs-ml-1pct.csv
 output: output/wordclouds/
 min_df: 0.5
-max_df: 0.8
+max_df: 0.9
+max_features: 300
 sublinear_tf: false

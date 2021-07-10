@@ -24,20 +24,23 @@ vectorizer = TfidfVectorizer(
     tokenizer=tokenizer,
     min_df=cfg['min_df'],
     max_df=cfg['max_df'],
+    max_features=cfg['max_features'],
     sublinear_tf=cfg['sublinear_tf'],
 )
-corpus = []
+corpus_genres = []
 for genre, col in zip(genres, genre_cols):
     other_cols = [c for c in genre_cols if c != col]
     words = df[(df[col] == 1) & (df[other_cols] == 0).all(axis=1)].words
-    corpus.append(' '.join(words))
-X = vectorizer.fit_transform(corpus)
-vocabulary = vectorizer.get_feature_names()
+    corpus_genres.append(' '.join(words))
+X_genres = vectorizer.fit_transform(corpus_genres)
+vocab_genres = vectorizer.get_feature_names()
+output_genres = pd.DataFrame(X_genres.toarray(), index=genres, columns=vocab_genres)
+output_genres.to_csv(os.path.join(cfg['output'], 'tfidf-genres.csv'))
 
 for i, genre in enumerate(genres):
     print(f"producing wordcloud for genre: {genre}")
-    freqs = X.toarray()[i, :]
-    word_freqs = dict(zip(vocabulary, freqs))
+    freqs = X_genres.toarray()[i, :]
+    word_freqs = dict(zip(vocab_genres, freqs))
     word_cloud = WordCloud(width=800, height=500).fit_words(word_freqs)
     plt.figure(figsize=(8, 5))
     plt.imshow(word_cloud)
@@ -45,29 +48,8 @@ for i, genre in enumerate(genres):
     plt.savefig(os.path.join(cfg['output'], genre + '.png'), bbox_inches='tight', pad_inches=0)
     plt.close()
 
-# texts = []
-# print("tokenizing corpus")
-# for genre in genres:
-#     song_tokens = df[df[genre] == 1].lyrics.apply(lambda x: ' '.join(tokenize(x, **tokenize_kwargs)))
-#     genre_tokens = ' '.join(song_tokens).split()
-#     texts.append(genre_tokens)
-
-# print("producing corpus wordcloud")
-# full_text = sum(texts, [])
-# word_freqs = get_wordcloud_frequencies([full_text])
-# word_cloud = WordCloud(width=800, height=500).fit_words(word_freqs[0])
-# plt.figure(figsize=(8, 5))
-# plt.imshow(word_cloud)
-# plt.axis('off')
-# plt.savefig(os.path.join(cfg['output'], 'full.png'), bbox_inches='tight', pad_inches=0)
-# plt.close()
-
-# word_freqs = get_wordcloud_frequencies(texts, tfidf=True, min_tf_pct=0.01)
-# for i, genre in enumerate(genres):
-#     print(f"producing genre wordcloud: {genre}")
-#     word_cloud = WordCloud(width=800, height=500).fit_words(word_freqs[i])
-#     plt.figure(figsize=(8, 5))
-#     plt.imshow(word_cloud)
-#     plt.title(f'Genre: {genre}', fontsize=14)
-#     plt.axis('off')
-#     plt.savefig(os.path.join(subdir, genre + '.png'), bbox_inches='tight', pad_inches=0)
+corpus_bands = list(df.words)
+X_bands = vectorizer.fit_transform(corpus_bands)
+vocab_bands = vectorizer.get_feature_names()
+output_bands = pd.DataFrame(X_bands.toarray(), index=df.name, columns=vocab_bands)
+output_bands.to_csv(os.path.join(cfg['output'], 'tfidf-bands.csv'))
