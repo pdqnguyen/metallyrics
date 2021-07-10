@@ -1,7 +1,0 @@
-input: songs-1pct.csv
-output: output/swarm_plots/
-plots:
-  band_words:
-    num_words: 15000
-    num_bands: 150
-    filename: band_words.png

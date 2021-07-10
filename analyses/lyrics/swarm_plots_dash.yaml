@@ -1,6 +1,0 @@
-input: bands-1pct.csv
-num_words: 10000
-num_bands: 200
-fig_width: 20
-fig_height: 10
-markersize: 18

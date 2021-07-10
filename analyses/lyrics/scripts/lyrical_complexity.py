@@ -5,9 +5,7 @@ Compute a bunch of metrics for quantifying the complexity of song/artist lyrics
 import os
 import random
 import numpy as np
-from scipy.optimize import curve_fit
-import pandas as pd
-import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit\
 
 import lyrics_utils as utils
 import nlp
@@ -70,31 +68,35 @@ def vocd(words, num_trials=3, num_segs=100, min_seg=35, max_seg=50):
     return np.mean(d_trials)
 
 
-def get_lexical_diversity(data, measures):
+def get_lexical_diversity(data):
     tokens = data.words.apply(len)
     types = data.words.apply(lambda x: len(set(x)))
     data['N'] = tokens
-    if measures.get('types', False):
-        data['types'] = types
-    if measures.get('TTR', False):
-        data['TTR'] = types / tokens
-    if measures.get('logTTR', False):
-        data['logTTR'] = np.log(types) / np.log(tokens)
-    if measures.get('MTLD', False):
-        data['MTLD'] = data.words.apply(MTLD, threshold=0.5)
-    if measures.get('logMTLD', False):
-        if 'MTLD' in data.columns:
-            data['logMTLD'] = np.log(data['MTLD'])
-        else:
-            data['logMTLD'] = np.log(data.words.apply(MTLD, threshold=0.5))
-    if measures.get('vocd-D', False):
-        data['vocd-D'] = data.words.apply(vocd, num_segs=10)
-    if measures.get('logvocd-D', False):
-        if 'vocd-D' in data.columns:
-            data['logvocd-D'] = np.log(data['vocd-D'])
-        else:
-            data['logvocd-D'] = np.log(data.words.apply(vocd, num_segs=10))
+    data['types'] = types
+    data['TTR'] = types / tokens
+    data['logTTR'] = np.log(types) / np.log(tokens)
+    data['MTLD'] = data.words.apply(MTLD, threshold=0.5)
+    data['logMTLD'] = np.log(data['MTLD'])
+    data['vocd-D'] = data.words.apply(vocd, num_segs=10)
+    data['logvocd-D'] = np.log(data['vocd-D'])
     return data[data.N > 0]
+
+
+def uniq_first_words(x, num_words):
+    """Of the first `num_words` in this text, how many are unique?
+    """
+    return len(set(x[:num_words]))
+
+
+def get_band_words(data, num_bands=None, num_words=None):
+    """Filter bands by word count and reviews, and count number of unique first words.
+    """
+    data_short = data[data['word_count'] > num_words].copy()
+    top_reviewed_bands = data_short.sort_values('reviews')['name'][-num_bands:]
+    data_short = data_short.loc[top_reviewed_bands.index]
+    data_short['unique_first_words'] = data_short['words'].apply(uniq_first_words, args=(num_words,))
+    data_short = data_short.sort_values('unique_first_words')
+    return data_short
 
 
 cfg = utils.get_config()
@@ -103,16 +105,9 @@ if not os.path.exists(output):
     os.mkdir(output)
 band_df = utils.load_bands(cfg['input'])
 band_df = nlp.get_band_stats(band_df)
-num_bands = cfg['num_bands']
-top_reviewed = band_df.sort_values('reviews')['name'][-num_bands:]
-band_df = band_df.loc[top_reviewed.index]
+band_df = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
 genres = [c for c in band_df.columns if 'genre_' in c]
-ld_df = get_lexical_diversity(band_df, cfg['measures'])
+ld_df = get_lexical_diversity(band_df)
+ld_df.drop(columns=['words', 'lyrics', 'words_uniq'], inplace=True)
 filepath = os.path.join(cfg['output'], cfg['filename'])
-ld_df.to_csv(filepath, index=False)
-
-# for i, row in band_df.iterrows():
-#     plt.plot(cumulative_TTR(row['words'][:2000]), alpha=0.3)
-# plt.xlabel('Tokens')
-# plt.ylabel('Cumulative TTR')
-# plt.savefig(os.path.join(cfg['output'], 'TTR.png'))
+ld_df.to_csv(filepath, index=False, float_format='%.4g')
