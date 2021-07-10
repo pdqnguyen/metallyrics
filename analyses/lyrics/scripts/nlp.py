@@ -1,7 +1,3 @@
-import glob
-import os
-import re
-
 import numpy as np
 import scipy
 
@@ -10,20 +6,7 @@ from nltk.corpus import wordnet
 from nltk.tokenize import RegexpTokenizer
 
 
-STOPWORDS_DIR = os.path.abspath('stopwords')
 ENGLISH_WORDS = set(nltk_words.words())
-
-
-def get_stopwords(stopword_dir=STOPWORDS_DIR):
-    stopwords = set()
-    filenames = glob.glob(os.path.join(stopword_dir, '*'))
-    for filename in filenames:
-        with open(filename, 'r', encoding='utf-8') as f:
-            lines = f.read().split('\n')
-        for word in lines:
-            if re.match('^\w+$', word):
-                stopwords.add(word)
-    return stopwords
 
 
 def tokenize(s, english_only=False, stopwords=None):
