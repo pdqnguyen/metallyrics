@@ -8,7 +8,6 @@ import numpy as np
 from scipy.optimize import curve_fit\
 
 import lyrics_utils as utils
-import nlp
 
 
 def TTR(x):
@@ -82,30 +81,13 @@ def get_lexical_diversity(data):
     return data[data.N > 0]
 
 
-def uniq_first_words(x, num_words):
-    """Of the first `num_words` in this text, how many are unique?
-    """
-    return len(set(x[:num_words]))
-
-
-def get_band_words(data, num_bands=None, num_words=None):
-    """Filter bands by word count and reviews, and count number of unique first words.
-    """
-    data_short = data[data['word_count'] > num_words].copy()
-    top_reviewed_bands = data_short.sort_values('reviews')['name'][-num_bands:]
-    data_short = data_short.loc[top_reviewed_bands.index]
-    data_short['unique_first_words'] = data_short['words'].apply(uniq_first_words, args=(num_words,))
-    data_short = data_short.sort_values('unique_first_words')
-    return data_short
-
-
 cfg = utils.get_config()
 output = cfg['output']
 if not os.path.exists(output):
     os.mkdir(output)
 band_df = utils.load_bands(cfg['input'])
-band_df = nlp.get_band_stats(band_df)
-band_df = get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
+band_df = utils.get_band_stats(band_df)
+band_df = utils.get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
 genres = [c for c in band_df.columns if 'genre_' in c]
 ld_df = get_lexical_diversity(band_df)
 ld_df.drop(columns=['words', 'lyrics', 'words_uniq'], inplace=True)

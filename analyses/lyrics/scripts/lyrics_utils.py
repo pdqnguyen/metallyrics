@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import yaml
 import pandas as pd
+import numpy as np
 
 
 def get_config(required=('input', 'output')):
@@ -25,6 +26,48 @@ def load_bands(filepath):
     data = pd.read_csv(filepath)
     data['words'] = data['words'].str.split(' ')
     return data
+
+
+def get_song_stats(data):
+    data['words_uniq'] = data['song_words'].apply(set)
+    data['word_count'] = data['song_words'].apply(len)
+    data['word_count_uniq'] = data['words_uniq'].apply(len)
+    data['word_rate'] = data['word_count'] / data['seconds']
+    data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
+    data.loc[data['word_rate'] == np.inf, 'word_rate'] = 0
+    data.loc[data['word_rate_uniq'] == np.inf, 'word_rate_uniq'] = 0
+    return data
+
+
+def get_band_stats(data):
+    data['words_uniq'] = data['words'].apply(set)
+    data['word_count'] = data['words'].apply(len)
+    data['word_count_uniq'] = data['words_uniq'].apply(len)
+    data['words_per_song'] = data['word_count'] / data['songs']
+    data['words_per_song_uniq'] = data['word_count_uniq'] / data['songs']
+    data['seconds_per_song'] = data['seconds'] / data['songs']
+    data['word_rate'] = data['word_count'] / data['seconds']
+    data['word_rate_uniq'] = data['word_count_uniq'] / data['seconds']
+    data.loc[data['word_rate'] == np.inf, 'word_rate'] = 0
+    data.loc[data['word_rate_uniq'] == np.inf, 'word_rate_uniq'] = 0
+    return data
+
+
+def uniq_first_words(x, num_words):
+    """Of the first `num_words` in this text, how many are unique?
+    """
+    return len(set(x[:num_words]))
+
+
+def get_band_words(data, num_bands=None, num_words=None):
+    """Filter bands by word count and reviews, and count number of unique first words.
+    """
+    data_short = data[data['word_count'] > num_words].copy()
+    top_reviewed_bands = data_short.sort_values('reviews')['name'][-num_bands:]
+    data_short = data_short.loc[top_reviewed_bands.index]
+    data_short['unique_first_words'] = data_short['words'].apply(uniq_first_words, args=(num_words,))
+    data_short = data_short.sort_values('unique_first_words')
+    return data_short
 
 
 def convert_seconds(series):
