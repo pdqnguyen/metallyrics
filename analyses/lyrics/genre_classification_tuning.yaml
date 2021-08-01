@@ -1,0 +1,33 @@
+input: 'bands-ml-10pct.csv'
+output: 'output/genre_classification/hyperparameter_tuning/'
+downsample: 10
+vectorizer:
+  min_df: 0.1
+  max_df: 0.9
+  max_features: 500
+  sublinear_tf: false
+mlsol:
+  perc_gen_instances: 0.3
+  k: 5
+models:
+  - name: 'RandomForestClassifier'
+    module: 'sklearn.ensemble'
+    n_estimators:
+      - 100
+      - 300
+      - 1000
+      - 3000
+    max_depth:
+      - 3
+      - 10
+      - 30
+      - 100
+    max_features:
+      - 'auto'
+      - 'sqrt'
+      - 'log2'
+    min_samples_leaf: 1
+    min_samples_split: 2
+    bootstrap: true
+    n_jobs: -1
+    random_state: 0

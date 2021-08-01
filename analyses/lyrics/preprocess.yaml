@@ -11,3 +11,6 @@ datasets:
     type: 'songs'
     output: 'songs-10pct.csv'
     ml-output: 'songs-ml-10pct.csv'
+  - min_pct: 0.1
+    type: 'bands'
+    ml-output: 'bands-ml-10pct.csv'

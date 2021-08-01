@@ -114,12 +114,19 @@ def ml_dataset(data, genres):
     Generate `pd.DataFrame` with only lyrics and genre columns
     """
     out = pd.DataFrame(index=range(data.shape[0]), columns=['lyrics'] + genres)
+    if 'name' in data.columns:
+        ref = data['name']
+    elif 'band_name' in data.columns and 'song_name' in data.columns:
+        ref = data['band_name'] + ' - ' + data['song_name']
+        ref.name = 'name'
+    else:
+        ref = None
     if 'song_darklyrics' in data.columns:
         out['lyrics'] = data['song_darklyrics'].reset_index(drop=True)
     elif 'lyrics' in data.columns:
         out['lyrics'] = data['lyrics']
     out[genres] = data[['genre_' + genre for genre in genres]].reset_index(drop=True)
-    return out
+    return out, ref
 
 
 def main(config):
@@ -145,14 +152,18 @@ def main(config):
             data_type = d.get('type', 'songs')
             if data_type == 'bands':
                 print('Combining songs into bands')
-                df = utils.songs2bands(df)
-                print('Bands:', len(df))
-            df_r, top_genres = reduce_dataset(df, genre_cols, d['min_pct'])
-            df_r_ml = ml_dataset(df, top_genres)
+                df_out = utils.songs2bands(df)
+                print('Bands:', len(df_out))
+            else:
+                df_out = df.copy()
+            df_r, top_genres = reduce_dataset(df_out, genre_cols, d['min_pct'])
             if 'output' in d.keys():
                 df_r.to_csv(d['output'], index=False)
             if 'ml-output' in d.keys():
+                df_r_ml, df_r_ml_ref = ml_dataset(df_out, top_genres)
                 df_r_ml.to_csv(d['ml-output'], index=False)
+                if df_r_ml_ref is not None:
+                    df_r_ml_ref.to_csv(d['ml-output'].replace('.csv', '-ref.csv'), index=False)
     print('Done')
 
 
