@@ -1,34 +1,53 @@
-input: 'bands-ml-10pct.csv'
-output: 'output/genre_classification/'
+input: bands-ml-10pct.csv
+output: output/genre_classification/
 vectorizer:
-  min_df: 0.1
-  max_df: 0.9
-  max_features: 500
-  sublinear_tf: false
-mlsol:
-  perc_gen_instances: 0.3
-  k: 5
+  name: TfidfVectorizer
+  module: sklearn.feature_extraction.text
+  params:
+    min_df: 0.3
+    max_df: 0.9
+    max_features: 1000
+    sublinear_tf: false
+resampler:
+  name: MLSOL
+  module: mlsol
+  params:
+    perc_gen_instances: 0.3
+    k: 5
 models:
-  - name: 'LogisticRegression'
-    module: 'sklearn.linear_model'
-    solver: 'lbfgs'
-    max_iter: 1000
-    random_state: 0
-  - name: 'BernoulliNB'
-    module: 'sklearn.naive_bayes'
-  - name: 'RandomForestClassifier'
-    module: 'sklearn.ensemble'
-    n_estimators: 300
-    max_depth: 10
-    max_features: 'auto'
-    min_samples_leaf: 1
-    min_samples_split: 2
-    bootstrap: true
-    n_jobs: -1
-    random_state: 0
-  - name: 'LGBMClassifier'
-    module: 'lightgbm'
-    n_estimators: 1000
-    max_depth: 30
-    n_jobs: -1
-    random_state: 0
+#  -
+#    name: LogisticRegression
+#    module: sklearn.linear_model
+#    params:
+#      solver: lbfgs
+#      max_iter: 1000
+#      random_state: 0
+#  -
+#    name: BernoulliNB
+#    module: sklearn.naive_bayes
+#  -
+#    name: RandomForestClassifier
+#    module: sklearn.ensemble
+#    params:
+#      n_estimators: 300
+#      max_depth: 10
+#      max_features: 'auto'
+#      min_samples_leaf: 1
+#      min_samples_split: 2
+#      bootstrap: true
+#      n_jobs: -1
+#      random_state: 0
+#  -
+#    name: LGBMClassifier
+#    module: lightgbm
+#    params:
+#      n_estimators: 1000
+#      max_depth: 30
+#      n_jobs: -1
+#      random_state: 0
+  -
+    name: KerasClassifier
+    module: keras.wrappers.scikit_learn
+    params:
+      epochs: 64
+      batch_size: 128

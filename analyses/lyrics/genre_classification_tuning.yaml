@@ -1,33 +1,79 @@
-input: 'bands-ml-10pct.csv'
-output: 'output/genre_classification/hyperparameter_tuning/'
+input: bands-ml-10pct.csv
+output: output/genre_classification/hyperparameter_tuning/
 downsample: 10
 vectorizer:
-  min_df: 0.1
-  max_df: 0.9
-  max_features: 500
-  sublinear_tf: false
-mlsol:
-  perc_gen_instances: 0.3
-  k: 5
+  name: TfidfVectorizer
+  module: sklearn.feature_extraction.text
+  params:
+    min_df: 0.3
+    max_df: 0.9
+    max_features: 1000
+    sublinear_tf: false
+resampler:
+  name: MLSOL
+  module: mlsol
+  params:
+    perc_gen_instances: 0.3
+    k: 5
 models:
-  - name: 'RandomForestClassifier'
-    module: 'sklearn.ensemble'
-    n_estimators:
-      - 100
-      - 300
-      - 1000
-      - 3000
-    max_depth:
-      - 3
-      - 10
-      - 30
-      - 100
-    max_features:
-      - 'auto'
-      - 'sqrt'
-      - 'log2'
-    min_samples_leaf: 1
-    min_samples_split: 2
-    bootstrap: true
-    n_jobs: -1
-    random_state: 0
+  -
+    name: LogisticRegression
+    module: sklearn.linear_model
+    params:
+      solver:
+        - newton-cg
+        - lbfgs
+        - liblinear
+        - sag
+        - saga
+      max_iter: 1000
+      random_state: 0
+  -
+    name: RandomForestClassifier
+    module: sklearn.ensemble
+    params:
+      n_estimators: 1000
+      criterion:
+        - gini
+        - entropy
+      max_features:
+        - auto
+        - sqrt
+        - log2
+      min_samples_split: 2
+      min_samples_leaf: 1
+      bootstrap: true
+      n_jobs: -1
+      random_state: 0
+  -
+    name: LGBMClassifier
+    module: lightgbm
+    params:
+      boosting_type:
+        - gbdt
+        - dart'
+        - goss
+      num_leaves:
+        - 7
+        - 15
+        - 31
+      n_estimators: 1000
+      max_bin:
+        - 32
+        - 64
+        - 128
+        - 255
+      n_jobs: -1
+      random_state: 0
+  -
+    name: KerasClassifier
+    module: keras.wrappers.scikit_learn
+    params:
+      epoch:
+        - 16
+        - 32
+        - 64
+      batch_size:
+        - 64
+        - 128
+        - 256

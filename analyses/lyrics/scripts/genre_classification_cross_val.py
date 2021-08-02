@@ -31,7 +31,7 @@ if __name__ == '__main__':
         print(est_params)
         print()
         pipeline = build_pipeline(vectorizer_params, mlsol_params, est, est_params)
-        mlc, _ = multilabel_pipeline_cross_val(pipeline, X[::10], y[::10], labels=genres)
+        mlc = multilabel_pipeline_cross_val(pipeline, X[::10], y[::10], labels=genres, verbose=1)
         mlc.print_report()
         best_thresh = mlc.thresh
         if isinstance(best_thresh, float):
