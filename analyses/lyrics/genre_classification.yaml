@@ -14,6 +14,7 @@ resampler:
   params:
     perc_gen_instances: 0.3
     k: 5
+    random_state: 0
 models:
 #  -
 #    name: LogisticRegression
