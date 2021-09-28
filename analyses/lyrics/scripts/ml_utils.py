@@ -116,13 +116,13 @@ def init_tf_session(seed=0):
     return
 
 
-def create_keras_model(input_dim=None):
+def create_keras_model(input_dim=None, hidden_layer_size=64):
     from keras.models import Sequential
     from keras import layers
     model = Sequential()
-    model.add(layers.Dense(64, input_dim=input_dim, activation='relu'))
-    model.add(layers.Dropout(rate=0.2))
-    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(hidden_layer_size, input_dim=input_dim, activation='relu'))
+    # model.add(layers.Dropout(rate=0.2))
+    # model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['binary_accuracy'])
     return model
@@ -257,7 +257,7 @@ def multilabel_pipeline_cross_val(pipeline, X, y, labels=None, n_splits=3, verbo
     folds : list
         (train_idx, valid_idx) pair for each CV fold
     """
-    kfold = IterativeStratification(n_splits=n_splits, order=1, random_state=0)
+    kfold = IterativeStratification(n_splits=n_splits, order=1, random_state=None)
     pred = np.zeros_like(y, dtype=float)
     thresh_folds = np.zeros((y.shape[1], n_splits))
     for i, (train_idx, valid_idx) in enumerate(kfold.split(X, y)):

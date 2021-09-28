@@ -56,7 +56,7 @@ if __name__ == '__main__':
         pipeline.set_threshold([float(tt) for tt in args.thresholds.split(',')])
     print("Thresholds:", pipeline.threshold)
     if args.lyrics is not None:
-        pipeline.classify_text(args.lyrics)
+        pipeline.classify_text(args.lyrics, verbose=True)
     else:
         while True:
             try:
@@ -65,4 +65,4 @@ if __name__ == '__main__':
                 break
             else:
                 print()
-                pipeline.classify_text(inp)
+                pipeline.classify_text(inp, verbose=True)

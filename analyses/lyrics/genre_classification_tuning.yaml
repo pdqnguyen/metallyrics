@@ -1,4 +1,4 @@
-input: bands-ml-10pct.csv
+input: songs-ml-10pct.csv
 output: output/genre_classification/hyperparameter_tuning/
 downsample: 10
 n_splits: 3
@@ -6,7 +6,9 @@ vectorizer:
   name: TfidfVectorizer
   module: sklearn.feature_extraction.text
   params:
-    min_df: 0.3
+#    min_df: 0.3
+#    max_df: 0.9
+    min_df: 0.01
     max_df: 0.9
     max_features: 1000
     sublinear_tf: false
@@ -37,6 +39,14 @@ models:
 #        - 10.0
 #      max_iter: 1000
 #      random_state: 0
+#  -
+#    name: BernoulliNB
+#    module: sklearn.naive_bayes
+#    params:
+#      alpha:
+#        - 0.0
+#        - 0.5
+#        - 1.0
 #  -
 #    name: RandomForestClassifier
 #    module: sklearn.ensemble
@@ -77,6 +87,10 @@ models:
     name: KerasClassifier
     module: keras.wrappers.scikit_learn
     params:
+      hidden_layer_size:
+        - 128
+        - 256
+        - 512
       epochs:
         - 32
         - 64

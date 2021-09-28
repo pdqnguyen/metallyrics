@@ -58,7 +58,8 @@ if __name__ == '__main__':
         print("\nModel parameters:", model['params'])
         pipeline = build_pipeline(cfg['vectorizer'], cfg['resampler'], model)
         pipeline.fit(X, y, labels=genres)
-        pipeline.set_threshold(model['threshold'])
+        if 'threshold' in model.keys():
+            pipeline.set_threshold(model['threshold'])
         vocab = np.array(pipeline.vectorizer.get_feature_names())
         if model['name'] in FEATURE_IMPORTANCE_CLASSIFIERS:
             for genre, clf in zip(genres, pipeline.classifier.classifiers_):
