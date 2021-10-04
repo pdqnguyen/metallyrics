@@ -88,9 +88,8 @@ models:
     module: keras.wrappers.scikit_learn
     params:
       hidden_layer_size:
-        - 128
-        - 256
         - 512
+        - 1024
       epochs:
         - 32
         - 64

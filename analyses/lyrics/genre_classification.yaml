@@ -66,14 +66,19 @@ models:
 #      max_bin: 255
 #      n_jobs: -1
 #      random_state: 0
-#  -
-#    name: KerasClassifier
-#    module: keras.wrappers.scikit_learn
-#    params:
-#      epochs: 32
-#      batch_size: 256
-#    threshold:
+  -
+    name: KerasClassifier
+    module: keras.wrappers.scikit_learn
+    params:
+      epochs: 32
+      batch_size: 256
+    threshold:
 #      - 0.081
 #      - 0.20
 #      - 0.040
 #      - 0.043
+      - 0.02521418
+      - 0.2600453
+      - 0.02179153
+      - 0.04177151
+      - 0.05983936
