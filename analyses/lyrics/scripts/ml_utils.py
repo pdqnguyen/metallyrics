@@ -9,6 +9,11 @@ import pandas as pd
 from scipy.sparse.csr import csr_matrix
 from scipy.sparse.lil import lil_matrix
 
+from keras.models import Sequential
+from keras import layers
+from keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.callbacks import EarlyStopping
+
 from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, roc_auc_score
 from skmultilearn.model_selection import IterativeStratification
 from skmultilearn.problem_transform import BinaryRelevance
@@ -85,18 +90,14 @@ def build_pipeline(vectorizer_cfg, resampler_cfg, est_cfg):
     resampler = init_model(resampler_cfg)
     args = ()
     if est_cfg['name'] == 'KerasClassifier':
-        # Special handling for Keras models.
-        # A build function must be provided as a positional argument
-        # The feature matrix must also be padded to the max_features so that
-        # the input_dim parameter can be chosen agnostic of the dimensions of
-        # the un-padded vectorized feature matrix.
         args += (create_keras_model,)
-        est_cfg['input_dim'] = vectorizer_cfg['params']['max_features']
+        # est_cfg['input_dim'] = vectorizer_cfg['params']['max_features']
         pad_features = True
+        classifier = init_model(est_cfg, *args)
     else:
         pad_features = False
-    est = init_model(est_cfg, *args)
-    classifier = BinaryRelevance(est, require_dense=[False, True])
+        est = init_model(est_cfg, *args)
+        classifier = BinaryRelevance(est, require_dense=[False, True])
     pipeline = NLPipeline(
         vectorizer=vectorizer,
         resampler=resampler,
@@ -116,15 +117,20 @@ def init_tf_session(seed=0):
     return
 
 
-def create_keras_model(input_dim=None, hidden_layer_size=64):
-    from keras.models import Sequential
-    from keras import layers
+def create_keras_model(input_dim=None, output_dim=None, architecture=None):#, hidden_layer_size=64):
+    assert isinstance(architecture, list)
     model = Sequential()
-    model.add(layers.Dense(hidden_layer_size, input_dim=input_dim, activation='relu'))
+    # model.add(layers.Dense(hidden_layer_size, input_dim=input_dim, activation='relu'))
     # model.add(layers.Dropout(rate=0.2))
     # model.add(layers.Dense(256, activation='relu'))
-    model.add(layers.Dense(1, activation='sigmoid'))
+    model.add(layers.Dense(architecture[0], input_dim=input_dim, activation='relu'))
+    if len(architecture) > 1:
+        for x in architecture[1:]:
+            model.add(layers.Dropout(rate=0.2))
+            model.add(layers.Dense(x, activation='relu'))
+    model.add(layers.Dense(output_dim, activation='sigmoid'))
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['binary_accuracy'])
+    print(model.summary())
     return model
 
 
@@ -173,7 +179,7 @@ class NLPipeline:
             feature_names + [''] * self.padding
         return
 
-    def fit(self, X, y, labels=None):
+    def fit(self, X, y, labels=None, verbose=0):
         self.labels = labels
         X_v = self.vectorizer.fit_transform(X).toarray()
         if self.pad_features:
@@ -182,7 +188,19 @@ class NLPipeline:
                 padding_array = np.zeros((X_v.shape[0], self.padding))
                 X_v = np.concatenate((X_v, padding_array), axis=1)
         X_r, y_r = self.resampler.fit_resample(X_v, y)
-        self.classifier.fit(X_r, y_r)
+        if isinstance(self.classifier, KerasClassifier):
+            callback = EarlyStopping(
+                monitor="val_loss",
+                min_delta=0,
+                patience=2,
+                verbose=0,
+                mode="auto",
+                baseline=None,
+                restore_best_weights=True,
+            )
+            self.classifier.fit(X_r, y_r, validation_split=0.2, callbacks=callback, verbose=verbose)
+        else:
+            self.classifier.fit(X_r, y_r)
         return self
 
     def predict(self, X):
@@ -265,7 +283,7 @@ def multilabel_pipeline_cross_val(pipeline, X, y, labels=None, n_splits=3, verbo
             print(f"\n--------\nFold {i+1}/{kfold.n_splits}")
         X_train, y_train = X[train_idx], y[train_idx]
         X_valid, y_valid = X[valid_idx], y[valid_idx]
-        pipeline.fit(X_train, y_train, labels=labels)
+        pipeline.fit(X_train, y_train, labels=labels, verbose=verbose)
         valid_pred = pipeline.predict(X_valid)
         pred[valid_idx] = valid_pred
         mlc_valid = MultiLabelClassification(y_valid, valid_pred, labels=labels)
@@ -547,6 +565,8 @@ class MultiLabelClassification:
 def plot_feature_importances(clf, vocab):
     if hasattr(clf, 'feature_importances_'):
         fi = clf.feature_importances_
+    elif hasattr(clf, 'feature_log_prob_'):
+        fi = clf.feature_log_prob_[1, :]
     elif hasattr(clf, 'coef_'):
         fi = clf.coef_[0]
     else:

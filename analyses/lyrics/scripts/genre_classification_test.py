@@ -5,7 +5,6 @@ Runs in interactive mode if no lyrics are given in command-line
 
 
 import os
-import glob
 from argparse import ArgumentParser
 import pickle
 import warnings
@@ -37,21 +36,12 @@ if __name__ == '__main__':
         from ml_utils import create_keras_model
         # look for and load all Keras models found in the same directory as the pipeline
         pipeline_dir = os.path.dirname(args.pipeline)
-        classifiers = []
-        clf_fnames = glob.glob(os.path.join(pipeline_dir, 'keras*.h5'))
-        for i, clf_fname in enumerate(clf_fnames):
-            clf = KerasClassifier(create_keras_model)
-            clf.model = load_model(clf_fname)
-            # get the 'classes_' attribute, necessary for the wrapper to make predictions
-            with h5py.File(clf_fname, 'r') as clf_h5:
-                clf.classes_ = clf_h5.attrs['classes']
-            classifiers.append(clf)
-        # make sure number of Keras models found matches the number needed in the pipeline
-        if len(classifiers) == len(pipeline.classifier.classifiers_):
-            pipeline.classifier.classifiers_ = classifiers
-        else:
-            raise OSError(f"{len(classifiers)} Keras models found,"
-                          f" {len(pipeline.classifier.classifiers_)} needed")
+        clf_filename = os.path.join(pipeline_dir, "model.h5")
+        clf = KerasClassifier(create_keras_model)
+        clf.model = load_model(clf_filename)
+        with h5py.File(clf_filename, "r") as clf_h5:
+            clf.classes_ = clf_h5.attrs["classes"]
+        pipeline.classifier = clf
     if args.thresholds:
         pipeline.set_threshold([float(tt) for tt in args.thresholds.split(',')])
     print("Thresholds:", pipeline.threshold)

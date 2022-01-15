@@ -29,7 +29,8 @@ random.seed(RANDOM_SEED)
 FEATURE_IMPORTANCE_CLASSIFIERS = [
     'LogisticRegression',
     'RandomForestClassifier',
-    'LGBMClassifier'
+    'LGBMClassifier',
+    'MultinomialNB',
 ]
 
 
@@ -40,6 +41,8 @@ if __name__ == '__main__':
     X = df.pop('lyrics').values
     y = df.values
     genres = df.columns
+    print_header = f"Training models"
+    print("\n\n" + "*" * len(print_header) + f"\n{print_header}\n" + "*" * len(print_header))
     print(f"Number of samples: {X.shape[0]}")
     print(f"Number of labels: {y.shape[1]}")
     print(f"Labels: {list(genres)}")
@@ -50,6 +53,7 @@ if __name__ == '__main__':
             from ml_utils import init_tf_session
             init_tf_session(RANDOM_SEED)
             model['params']['input_dim'] = cfg['vectorizer']['params']['max_features']
+            model['params']['output_dim'] = y.shape[1]
         subdir = os.path.join(cfg['output'], name)
         if not os.path.exists(subdir):
             os.makedirs(subdir)
@@ -68,15 +72,11 @@ if __name__ == '__main__':
                 plt.savefig(filename, bbox_inches='tight')
         if name == 'KerasClassifier':
             # extra steps for saving Keras models because they can't be pickled
-            for i, clf in enumerate(pipeline.classifier.classifiers_):
-                # save the Keras model to .h5 file
-                model_fname = os.path.join(subdir, f'keras{i}.h5')
-                clf.model.save(model_fname)
-                # add the 'classes_' attribute to the .h5 file
-                # so we can reconstruct the wrapper later
-                clf_h5 = h5py.File(model_fname, 'a')
-                clf_h5.attrs['classes'] = clf.classes_
-                # clear the classifier from the pipeline, so now we can pickle the pipeline
-                pipeline.classifier.classifiers_[i] = None
+            clf = pipeline.classifier
+            clf_filename = os.path.join(subdir, 'model.h5')
+            clf.model.save(clf_filename)
+            pipeline.classifier = None
+            clf_h5 = h5py.File(clf_filename, 'a')
+            clf_h5.attrs['classes'] = clf.classes_
         with open(os.path.join(subdir, 'pipeline.pkl'), 'wb') as f:
             pickle.dump(pipeline, f)
