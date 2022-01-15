@@ -36,7 +36,7 @@ The analyses below provide insights on the history of heavy metal albums, and li
 > 
 > Concise visualizations of song lyrics from different genres.
 
-> [Machine learning notebook](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/notebooks/song-lyrics-multi-genre-bow.ipynb)
+> [Machine learning notebook](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/notebooks/genre-classification-bag-of-words.ipynb)
 > 
 > This notebook presents the multi-label problem of genre classification based on lyrics. Different approaches
 > and preprocessing steps are discussed, and various machine learning models are compared via cross-validation
