@@ -92,8 +92,8 @@ def get_top_genres(data, min_pct):
     Get genre tags appearing in more than min_pct rows of data
     """
     isolated = (data.sum(axis=1) == 1)
-    isolated_cols = sorted(set(data[isolated].idxmax(axis=1)))
-    top_cols = [col for col in isolated_cols if data[col][isolated].mean() >= min_pct]
+    col_pcts = data[isolated].mean(axis=0)
+    top_cols = col_pcts.index[col_pcts >= min_pct]
     top_genres = [col.replace('genre_', '') for col in top_cols]
     return top_genres
 
@@ -134,7 +134,7 @@ def main(config):
         cfg = yaml.safe_load(f)
     if 'input' not in cfg.keys():
         raise KeyError(f"missing key 'input' in '{config}'")
-    df = pd.read_csv(cfg['input'], low_memory=False)
+    df = pd.read_csv(cfg['input'], low_memory=False)[::100]
     print('Songs:', len(df))
     # Filter data
     print('Filtering songs')
