@@ -26,7 +26,6 @@ USE_PROXIES = False
 SCRAPE_TIMEOUT = 5
 CRAWL_DELAY = 10  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'http://www.darklyrics.com'
-LETTERS = 'abcdefghijklmnopqrstuvwxyz'
 LOGFILE = os.path.abspath('scraper_darklyrics.log')
 
 
@@ -101,7 +100,7 @@ def get_proxies(proxies_url=PROXIES_URL):
     req.add_header('User-Agent', ua.random)
     page = urlopen(req).read().decode('utf8')
     soup = BeautifulSoup(page, 'html.parser')
-    proxies_table = soup.find(id='proxylisttable')
+    proxies_table = soup.find(id='fpl-list')
     out = []
     for row in proxies_table.tbody.find_all('tr'):
         cells = row.find_all('td')
