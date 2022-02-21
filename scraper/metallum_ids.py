@@ -18,7 +18,7 @@ BASEURL = 'http://www.metal-archives.com/review/ajax-list-browse/by/alpha/select
 ENDURL = '/json/1'
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 RESPONSELENGTH = 200   # Fetch in pages of 200 reviews at a time
-MAXLENGTH = 12000      # Fetch up to 12000 reviews (highest of any letter (S) is >11,000 reviews)
+MAXLENGTH = 12100      # Fetch up to 12100 reviews (highest of any letter (S) is 12,094 reviews as of 2/11/22)
 MIN_REVIEWS = 0        # Minimum number of reviews for inclusion in table
 
 
@@ -64,7 +64,11 @@ def main(output, min_rev=MIN_REVIEWS):
     if not os.path.exists(output):
         os.makedirs(output)
     for letter in LETTERS:
-        print('letter: ' + letter)
+        print(f"letter: {letter}")
+        filename = os.path.join(output, 'ids{}.csv'.format(letter))
+        if os.path.exists(filename):
+            print(f"file already exists: {filename}")
+            continue
         t1 = time.time()
         url = BASEURL + letter + ENDURL
         df = scrape_json_all(url)
@@ -77,11 +81,10 @@ def main(output, min_rev=MIN_REVIEWS):
             band_id_most_reviews = review_counts.groupby(level=0).idxmax()
             band_ids = pd.DataFrame(list(band_id_most_reviews.values))
             band_ids.columns = ['name', 'id']
-            filename = os.path.join(output, 'ids{}.csv'.format(letter))
             band_ids.to_csv(filename, index=False)
-            print("{} unique bands found".format(len(band_ids)))
+            print(f"{len(band_ids)} unique bands found")
         else:
-            print("letter {} has 0 bands above the minimum review count threshold of " + str(min_rev))
+            print(f"letter {letter} has 0 bands above the minimum review count threshold of {min_rev}")
     return
 
 

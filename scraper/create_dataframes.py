@@ -80,8 +80,8 @@ def create_songs_df(bands, filename):
 def main():
     parser = ArgumentParser()
     parser.add_argument("which", help="'reviews' or 'songs'")
-    parser.add_argument("input", nargs="+")
-    parser.add_argument("output")
+    parser.add_argument("input", nargs="+", help=".json files (multiple args) containing aggregated band data; you can use <directory>/*.json to input full directory")
+    parser.add_argument("output", help=".csv file")
     args = parser.parse_args()
     input = []
     for inp in args.input:
