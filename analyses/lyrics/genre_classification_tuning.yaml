@@ -48,14 +48,6 @@ models:
         - 0.5
         - 1.0
   -
-    name: BernoulliNB
-    module: sklearn.naive_bayes
-    params:
-      alpha:
-        - 0.0
-        - 0.5
-        - 1.0
-  -
     name: RandomForestClassifier
     module: sklearn.ensemble
     params:

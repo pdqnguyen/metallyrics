@@ -66,23 +66,18 @@ def create_genre_columns(data):
     """
     Parse 'band_genres' column of data to generate individual genre columns
     """
-    band_genres = data.band_genre.drop_duplicates()
-    song_genres = data.band_genre
-    band_genre_lists = band_genres.str.lower().str.findall('[\w\-]+(?![^(]*\))')
-    song_genre_lists = song_genres.str.lower().str.findall('[\w\-]+(?![^(]*\))')
-    band_genre_lists = band_genre_lists.apply(lambda x: [s for s in x if s != 'metal'])
-    genres = sorted(set(band_genre_lists.sum()))
-    cols = [f'genre_{genre}' for genre in genres]
-    for genre, col in zip(genres, cols):
-        data[col] = song_genre_lists.apply(lambda x: int(genre in x))
-    return data, cols
+    song_genres = data.band_genre.apply(process_genre)
+    genres = sorted(set(song_genres.sum()))
+    new_cols = {f'genre_{genre}': song_genres.apply(lambda x: int(genre in x)) for genre in genres}
+    data = data.join(pd.DataFrame(new_cols))
+    return data, list(new_cols.keys())
 
 
 def process_genre(genre):
     """
     Find words (including hyphenated words) not in parentheses
     """
-    out = re.findall('[\w\-]+(?![^(]*\))', genre.lower())
+    out = re.findall(r'[\w\-]+(?![^(]*\))', genre.lower())
     out = [s for s in out if s != 'metal']
     return out
 
@@ -134,26 +129,31 @@ def main(config):
         cfg = yaml.safe_load(f)
     if 'input' not in cfg.keys():
         raise KeyError(f"missing key 'input' in '{config}'")
-    df = pd.read_csv(cfg['input'], low_memory=False)[::100]
-    print('Songs:', len(df))
+    df = pd.read_csv(cfg['input'], low_memory=False)
+    print(f'Songs: {len(df)}')
+    df = df[~df.song_darklyrics.isnull()]
+    df = df[df.song_darklyrics.str.strip().apply(len) > 0]
+    print(f'Songs with lyrics: {len(df)}')
     # Filter data
-    print('Filtering songs')
+    print('Filtering songs...')
     df = filter_missing(df)
     df = filter_english(df)
     df = filter_copyright(df)
+    print(f'Songs after filtering: {len(df)}')
     # Create column for song lengths in seconds
-    print('Converting song lengths to seconds')
+    print('Converting song lengths to seconds...')
     df['seconds'] = utils.convert_seconds(df['song_length'])
-    print('Creating genre columns')
+    print('Creating genre columns...')
     df, genre_cols = create_genre_columns(df)
-    print('Creating reduced datasets')
+    print(f'Genres found: {len(genre_cols)}')
+    print('Creating reduced datasets...')
     for d in cfg.get('datasets', []):
         if 'min_pct' in d.keys():
             data_type = d.get('type', 'songs')
             if data_type == 'bands':
-                print('Combining songs into bands')
+                print('Combining songs into bands...')
                 df_out = utils.songs2bands(df)
-                print('Bands:', len(df_out))
+                print(f'Bands: {len(df_out)}')
             else:
                 df_out = df.copy()
             df_r, top_genres = reduce_dataset(df_out, genre_cols, d['min_pct'])
