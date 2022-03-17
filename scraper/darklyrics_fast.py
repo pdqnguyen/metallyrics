@@ -15,14 +15,13 @@ from urllib.parse import urljoin
 from http.client import HTTPException
 from socket import timeout
 
+import pandas as pd
 from unidecode import unidecode
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from fake_useragent import UserAgent
 
 
-PROXIES_URL = 'https://free-proxy-list.net/'
-USE_PROXIES = False
 SCRAPE_TIMEOUT = 5
 CRAWL_DELAY = 10  # Time between accessing pages; be nice, don't lower this number
 BASEURL = 'http://www.darklyrics.com'
@@ -54,14 +53,10 @@ def configure_logger(
     return logger
 
 
-def scrape_html(url, proxy=None, crawl_delay=CRAWL_DELAY, scrape_timout=SCRAPE_TIMEOUT):
+def scrape_html(url, crawl_delay=CRAWL_DELAY, scrape_timout=SCRAPE_TIMEOUT):
     try:
-        if proxy is not None:
-            req = Request(url=url)
-            req.set_proxy(proxy['ip'] + ':' + proxy['port'], 'http')
-        else:
-            ua = UserAgent()
-            req = Request(url=url, headers={'User-Agent': ua.random})
+        ua = UserAgent()
+        req = Request(url=url, headers={'User-Agent': ua.random})
         page = urlopen(req, timeout=scrape_timout).read()
         soup = BeautifulSoup(page, 'html.parser')
         assert len(soup.text) > 0
@@ -74,67 +69,16 @@ def scrape_html(url, proxy=None, crawl_delay=CRAWL_DELAY, scrape_timout=SCRAPE_T
     return soup
 
 
-def scrape_html_with_proxies(url, retry=5):
-    global proxies, proxy
-    for i in range(retry):
-        try:
-            soup = scrape_html(url, proxy=proxy)
-        except (URLError, ConnectionError, TimeoutError, HTTPException):
-            logger.warning(f"connection error while fetching {url}")
-            if i < retry:
-                proxy = proxies.pop(0)
-                logging.warning(f"retrying with new proxy ({i + 1}/{retry})")
-        except ScrapingError:
-            logger.warning(f"page not found: {url}")
-            if i < retry:
-                proxy = proxies.pop(0)
-                logging.warning(f"retrying with new proxy ({i + 1}/{retry})")
-        else:
-            return soup
-    raise ScrapingError(f"failed to fetch {url} after {retry} attempts")
-
-
-def get_proxies(proxies_url=PROXIES_URL):
-    ua = UserAgent()
-    req = Request(proxies_url)
-    req.add_header('User-Agent', ua.random)
-    page = urlopen(req).read().decode('utf8')
-    soup = BeautifulSoup(page, 'html.parser')
-    proxies_table = soup.find(id='fpl-list')
-    out = []
-    for row in proxies_table.tbody.find_all('tr'):
-        cells = row.find_all('td')
-        out.append(dict(
-            ip=cells[0].string,
-            port=cells[1].string
-        ))
-    random.shuffle(out)
-    return out
-
-
-def get_random_proxy(proxies_list):
-    idx = random.choice(range(len(proxies_list)))
-    return idx, proxies_list[idx]
-
-
-def band_exists(name, use_proxies=USE_PROXIES):
-    url = get_band_url(name)
+def band_exists(name, url=None):
+    if url is None:
+        url = get_band_url(name)
     out = False
-    if use_proxies:
-        global proxies, proxy
-        try:
-            scrape_html_with_proxies(url)
-        except ScrapingError:
-            pass
-        else:
-            out = True
+    try:
+        scrape_html(url)
+    except ScrapingError:
+        pass
     else:
-        try:
-            scrape_html(url)
-        except ScrapingError:
-            pass
-        else:
-            out = True
+        out = True
     return out
 
 
@@ -169,10 +113,16 @@ def strip_name(name):
     return stripped
 
 
-def get_band_lyrics(band, use_proxies=USE_PROXIES):
+def get_band_lyrics(band, url=None):
     band_name = strip_name(band['name'])
     logger.info(f"fetching lyrics by {band_name}")
-    if band_exists(band_name, use_proxies=use_proxies):
+    if url is None:
+        # No band url provided, we have to check if the band has a page on DL
+        this_band_exists = band_exists(band_name)
+    else:
+        # Band url provided, assume they exist on DL
+        this_band_exists = True
+    if this_band_exists:
         logging.info(f"band {band_name} exists on {BASEURL}")
         t_albums = tqdm(
             range(len(band['albums'])),
@@ -184,13 +134,8 @@ def get_band_lyrics(band, use_proxies=USE_PROXIES):
             album_name = strip_name(album['name'])
             logger.info(f"fetching album '{album_name}'")
             album_url = get_album_url(band_name, album_name)
-            if use_proxies:
-                global proxies, proxy
-                if len(proxies) < 10:
-                    proxies = get_proxies()
-                    proxy = proxies.pop(0)
             try:
-                album_lyrics = get_album_lyrics(album_url, use_proxies=use_proxies)
+                album_lyrics = get_album_lyrics(album_url)
             except ScrapingError:
                 logger.warning(f"page not found: {album_url}")
             except:
@@ -216,15 +161,11 @@ def get_band_lyrics(band, use_proxies=USE_PROXIES):
     return band
 
 
-def get_album_lyrics(url, use_proxies=USE_PROXIES):
+def get_album_lyrics(url):
     """Fetch all lyrics for an album
     """
     logger.info(f"fetching lyrics from {url}")
-    if use_proxies:
-        global proxies, proxy
-        soup = scrape_html_with_proxies(url)
-    else:
-        soup = scrape_html(url)
+    soup = scrape_html(url)
     songs = soup.find_all('h3')   # Song names are tagged as headers
     album_lyrics = {}
     for song in songs:
@@ -246,40 +187,57 @@ def get_song_lyrics(song):
     return song_lyrics
 
 
-def main(src, dest, use_proxies=USE_PROXIES):
+def get_urls_from_csv(filename):
+    """Get DarkLyrics band urls generated from darklyrics_urls.py
+    """
+    df = pd.read_csv(filename)
+    filenames = df['filename'].values
+    urls = df['url'].values
+    return dict(zip(filenames, urls))
+
+
+def main(src, dest=None):
     """Scrape Dark Lyrics for bands found in src directory and save updated bands to dest
     """
-    global proxies, proxy
     # Get Metal-Archives info scraped by `metallum.py`
-    logger.info(f"searching for .json files in directory {src}")
-    ma_filenames = []
-    for f in os.listdir(src):
-        if '.json' in f:
-            filename = os.path.join(src, f)
+    if '.csv' in src:
+        darklyrics_urls = get_urls_from_csv(src)
+        ma_filenames = list(darklyrics_urls.keys())
+    else:
+        ma_filenames = []
+        for f in os.listdir(src):
+            if '.json' in f:
+                ma_filenames.append(os.path.join(src, f))
+        darklyrics_urls = {}
+    outputs = {}
+    for filename in ma_filenames:
+        if dest is not None:
             output = os.path.join(dest, os.path.basename(filename))
-            if os.path.exists(output):
-                file_has_lyrics = check_file_for_lyrics(output)
-                if file_has_lyrics:
-                    logger.info("file already exists and contains lyrics: " + output)
-                else:
-                    logger.info("file exists; lyrics will be added to it:" + output)
-                    ma_filenames.append(filename)
+        else:
+            output = os.path.abspath(filename)
+        if os.path.exists(output):
+            file_has_lyrics = check_file_for_lyrics(output)
+            if file_has_lyrics:
+                logger.info(f"file already exists and contains lyrics: {output}")
             else:
-                ma_filenames.append(filename)
-    t = tqdm(range(len(ma_filenames)), desc="looping over bands")
+                logger.info(f"file exists; lyrics will be added to it: {output}")
+                outputs[filename] = output
+        else:
+            outputs[filename] = output
+    t = tqdm(range(len(outputs)), desc="looping over bands")
     for i in t:
-        filename = ma_filenames[i]
-        output = os.path.join(dest, os.path.basename(filename))
+        filename, output = list(outputs.items())[i]
+        url = darklyrics_urls.get(filename, None)
         try:
             band = json.load(open(filename, 'r'))
-            band.update(get_band_lyrics(band, use_proxies=use_proxies))
+            band.update(get_band_lyrics(band, url=url))
         except KeyboardInterrupt:
             t.close()
             print()
             logger.error("scraping aborted by user", exc_info=True)
             sys.exit()
         except ScrapingError:
-            logger.warning("failed to fetch " + name)
+            logger.warning(f"failed to fetch {filename}")
         else:
             logger.info(f"saving updated band info to {output}")
             json.dump(band, open(output, 'w'), indent=4)
@@ -288,12 +246,11 @@ def main(src, dest, use_proxies=USE_PROXIES):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("src", help="source directory containing metal-archives bands")
+    parser.add_argument("src", help="source directory containing metal-archives bands, "
+                                      "or a csv file containing paths to metal-archives bands and darklyrics urls")
     parser.add_argument("--dest",
                         help="destination directory for saving new data; " +
                              "overwrite src if not given")
-    parser.add_argument("--use-proxies", action="store_true", default=USE_PROXIES,
-                        help="use proxies to rotate IP address while scraping")
     parser.add_argument("--logfile", default=LOGFILE)
     args = parser.parse_args()
     logger = configure_logger(args.logfile)
@@ -301,12 +258,10 @@ if __name__ == '__main__':
     print(f"PROGRESS WILL BE LOGGED IN {args.logfile}\n")
     if args.dest:
         dest = args.dest
+        if not os.path.exists(dest):
+            os.makedirs(dest)
+    elif '.csv' in args.src:
+        dest = None
     else:
         dest = args.src
-    if args.use_proxies:
-        proxies = get_proxies()
-        proxy = proxies.pop(0)
-    else:
-        proxies = None
-        proxy = None
-    main(args.src, dest, use_proxies=args.use_proxies)
+    main(args.src, dest)

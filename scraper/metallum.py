@@ -182,12 +182,13 @@ def get_reviews(url):
     for box in soup.find_all(attrs={'class': 'reviewBox'}):
         title = box.find(attrs={'class': 'reviewTitle'})
         content = box.find(attrs={'class': 'reviewContent'})
-        date = box.find('a', attrs={'class': 'profileMenu'})
+        submitted = box.find('a', attrs={'class': 'profileMenu'})
         try:
             review = dict(
                 title=title.text.strip(),
                 content=content.text.strip(),
-                date=date.next.next.strip(', \n')
+                date=submitted.next.next.strip(', \n'),
+                author=submitted.text.strip(),
             )
         except AttributeError:
             logger.warning("error while parsing review from " + url)
