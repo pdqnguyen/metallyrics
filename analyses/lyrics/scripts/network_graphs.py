@@ -43,7 +43,7 @@ vectorizer = TfidfVectorizer(
 corpus = list(df['clean_words'].apply(lambda x: ' '.join(x)))
 X = vectorizer.fit_transform(corpus)
 X_svd = TruncatedSVD(n_components=2, random_state=0).fit_transform(X)
-vocab_dbscan = DBSCAN(eps=cfg['vocab_eps'], min_samples=5).fit(X_svd)
+vocab_dbscan = DBSCAN(eps=cfg['vocab_eps'], min_samples=cfg['vocab_min_samples']).fit(X_svd)
 vocab_labels = vocab_dbscan.labels_
 print("Lyrics clustering results:")
 for i in sorted(set(vocab_labels)):
@@ -54,7 +54,7 @@ for i in sorted(set(vocab_labels)):
 genre_cols = [c for c in df.columns if 'genre_' in c]
 Y = df[genre_cols].values
 Y_pca = PCA(n_components=2, random_state=0).fit_transform(Y)
-genre_dbscan = DBSCAN(eps=cfg['genre_eps'], min_samples=5).fit(Y_pca)
+genre_dbscan = DBSCAN(eps=cfg['genre_eps'], min_samples=cfg['genre_min_samples']).fit(Y_pca)
 genre_labels = genre_dbscan.labels_
 print("\n\nGenre clustering results:")
 for i in sorted(set(genre_labels)):

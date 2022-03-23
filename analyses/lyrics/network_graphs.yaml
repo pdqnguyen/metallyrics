@@ -2,9 +2,11 @@ input: bands-1pct.csv
 output: output/network_graphs/
 num_words: 10000
 num_bands: 200
-min_df: 0.5
+min_df: 0.1
 max_df: 0.9
 max_features: 300
 sublinear_tf: false
 vocab_eps: 0.04
+vocab_min_samples: 5
 genre_eps: 0.25
+genre_min_samples: 5
