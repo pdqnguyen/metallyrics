@@ -1,5 +1,8 @@
-input: songs-ml-1pct.csv
+input: bands-1pct.csv
 output: output/wordclouds/
+filename: bands-wordclouds.csv
+num_words: 10000
+num_bands: 200
 min_df: 0.5
 max_df: 0.9
 max_features: 300

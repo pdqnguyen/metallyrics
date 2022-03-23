@@ -88,7 +88,6 @@ if not os.path.exists(output):
 band_df = utils.load_bands(cfg['input'])
 band_df = utils.get_band_stats(band_df)
 band_df = utils.get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
-genres = [c for c in band_df.columns if 'genre_' in c]
 ld_df = get_lexical_diversity(band_df)
 ld_df.drop(columns=['words', 'lyrics', 'words_uniq'], inplace=True)
 filepath = os.path.join(cfg['output'], cfg['filename'])
