@@ -1,0 +1,5 @@
+input: bands-1pct.csv
+output: output/feature_plots_data
+filename: bands-feature-plots-data.csv
+num_words: 2500
+num_bands: 350

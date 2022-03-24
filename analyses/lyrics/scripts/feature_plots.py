@@ -5,9 +5,10 @@ Compute a bunch of metrics for quantifying the complexity of song/artist lyrics
 import os
 import random
 import numpy as np
-from scipy.optimize import curve_fit\
+from scipy.optimize import curve_fit
 
 import lyrics_utils as utils
+from review_scores import weighted_scores
 
 
 def TTR(x):
@@ -88,6 +89,7 @@ if not os.path.exists(output):
 band_df = utils.load_bands(cfg['input'])
 band_df = utils.get_band_stats(band_df)
 band_df = utils.get_band_words(band_df, num_bands=cfg['num_bands'], num_words=cfg['num_words'])
+band_df['review_weighted'] = weighted_scores(band_df)
 ld_df = get_lexical_diversity(band_df)
 ld_df.drop(columns=['words', 'lyrics', 'words_uniq'], inplace=True)
 filepath = os.path.join(cfg['output'], cfg['filename'])
