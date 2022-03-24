@@ -117,12 +117,9 @@ def init_tf_session(seed=0):
     return
 
 
-def create_keras_model(input_dim=None, output_dim=None, architecture=None):#, hidden_layer_size=64):
-    assert isinstance(architecture, list)
+def create_keras_model(input_dim=None, output_dim=None, architecture=None):
+    assert isinstance(architecture, list), "`architecture` must be list of integers"
     model = Sequential()
-    # model.add(layers.Dense(hidden_layer_size, input_dim=input_dim, activation='relu'))
-    # model.add(layers.Dropout(rate=0.2))
-    # model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(architecture[0], input_dim=input_dim, activation='relu'))
     if len(architecture) > 1:
         for x in architecture[1:]:
@@ -179,14 +176,18 @@ class NLPipeline:
             feature_names + [''] * self.padding
         return
 
+    def apply_padding(self, X):
+        if self.padding > 0:
+            padding_array = np.zeros((X.shape[0], self.padding))
+            X = np.concatenate((X, padding_array), axis=1)
+        return X
+
     def fit(self, X, y, labels=None, verbose=0):
         self.labels = labels
         X_v = self.vectorizer.fit_transform(X).toarray()
         if self.pad_features:
             self.padding = self.vectorizer.max_features - len(self.vectorizer.get_feature_names())
-            if self.padding > 0:
-                padding_array = np.zeros((X_v.shape[0], self.padding))
-                X_v = np.concatenate((X_v, padding_array), axis=1)
+            X_v = self.apply_padding(X_v)
         X_r, y_r = self.resampler.fit_resample(X_v, y)
         if isinstance(self.classifier, KerasClassifier):
             callback = EarlyStopping(
@@ -205,6 +206,7 @@ class NLPipeline:
 
     def predict(self, X):
         X_v = self.vectorizer.transform(X).toarray()
+        X_v = self.apply_padding(X_v)
         if self.padding > 0:
             padding_array = np.zeros((X_v.shape[0], self.padding))
             X_v = np.concatenate((X_v, padding_array), axis=1)
