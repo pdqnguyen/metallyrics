@@ -31,7 +31,9 @@ def get_darklyrics_links(letters=LETTERS, crawl_delay=CRAWL_DELAY):
         for div in soup.find_all('div', attrs={'class': 'artists'}):
             artists.extend(div.find_all('a'))
         for a in artists:
-            out[a.text] = urljoin(BASEURL, a['href'])
+            name = a.text
+            if name not in out.keys():
+                out[a.text] = urljoin(BASEURL, a['href'])
         time.sleep(CRAWL_DELAY)
     return out
 
@@ -45,6 +47,7 @@ def main(src, output, letters=None):
     src_files = [f for f in os.listdir(args.src) if '.json' in f]
     logger.info(f"{len(src_files)} .json files found")
     links = get_darklyrics_links(letters=letters)
+    print(links)
     matched = {}
     for f in src_files:
         filename = os.path.join(src, f)
