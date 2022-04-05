@@ -13,34 +13,46 @@ scraping tool `darklyrics_fast.py` searches DL for the corresponding album lyric
 Finally, the data set is split by `create_dataframes.py` into a csv table of album reviews and a csv table of song 
 lyrics (`/data/data.zip`).
 
-## Notebooks & analyses
+## Notebooks
 
 The analyses below provide insights on the history of heavy metal albums, and linguistic properties of metal lyrics.
 
 
-> [Exploration of artists and album reviews](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/reviews/reviews1.ipynb)
+> [Exploration of artists and album reviews](https://github.com/pdqnguyen/metallyrics/blob/master/reviews/reviews1.ipynb)
 >
 > A data-driven discussion of the history and global demographics of the heavy metal music industry and its many
 > genres. This notebook also provides statistical insights on the sentiments of MA users as expressed through online
 > album reviews.
 
-> [Lyrics data exploration](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/markdown/lyrics0.md)
+> [Neural network album review score prediction](https://github.com/pdqnguyen/metallyrics/blob/master/reviews/reviews2.ipynb)
+>
+> Prediction of album review scores using a convolutional neural network and GloVe word embedding.
+
+> [Lyrics data exploration](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/lyrics-part-1-overview.ipynb)
 > 
 > Brief overview of the lyrics data set.
 
-> [Lexical diversity measures](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/markdown/lyrics1.md)
+> [Lexical diversity measures](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/lyrics-part-2-lexical-diversity.ipynb)
 > 
 > Comparison of lexical diversity measures and what they tell us about artists and genres.
 
-> [Word clouds](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/markdown/lyrics2.md)
+> [Word clouds](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/lyrics-part-3-word-clouds.ipynb)
 > 
 > Concise visualizations of song lyrics from different genres.
 
-> [Machine learning notebook](https://github.com/pdqnguyen/metallyrics/blob/master/analyses/lyrics/notebooks/genre-classification-bag-of-words.ipynb)
+> [Network Graphs](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/lyrics-part-4-network-graphs.ipynb)
+> 
+> Processing data for generating network graphs with Gephi.
+
+> [Machine learning genre classification](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/genre-classification-bag-of-words.ipynb)
 > 
 > This notebook presents the multi-label problem of genre classification based on lyrics. Different approaches
 > and preprocessing steps are discussed, and various machine learning models are compared via cross-validation
 > to demonstrate possible solutions.
+
+> [Word embedding genre classification](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/genre-classification-word-embedding.ipynb)
+> 
+> An attempt at using GloVe word embedding and convolutional neural network, as well as LSTM, for genre classification.
 
 ## Machine learning scripts
 
@@ -64,6 +76,10 @@ Source code for these webpages can be found in the [pdqnguyen/metallyrics-web](h
 > [Network graph of heavy metal bands](https://metal-lyrics-network-graph.herokuapp.com/)
 > 
 > See how genre associations and lyrical similarity connect the disparate world of heavy metal artists.
+
+> [Global and U.S. maps of heavy metal bands](https://metal-lyrics-maps.herokuapp.com/)
+> 
+> Explore the world of heavy metal through choropleth maps.
 
 > [Interactive genre classifier tool](https://metal-lyrics-genre-classifier.herokuapp.com/)
 > 
