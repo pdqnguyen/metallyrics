@@ -5,13 +5,7 @@
 This repository contains analyses of heavy metal artists and their lyrical content.
 The core data set combines artist information, including genre labels, and album reviews from
 [The Metal-Archives](https://www.metal-archives.com) (MA) and song lyrics from [DarkLyrics](http://www.darklyrics.com)
-(DL). The data collection begins with the `metallum_ids.py` script, which reads through the complete list of
-[album reviews sorted by artist](https://www.metal-archives.com/review/browse/by/alpha) in order to build a csv table 
-of artist names and id numbers for artists with at least one album review (`/data/ids.csv`). Artist information and
-full-text album reviews are then scraped by `metallum.py` and saved into json files (`/data/bands.zip`). The DL 
-scraping tool `darklyrics_fast.py` searches DL for the corresponding album lyrics and adds them to the json files. 
-Finally, the data set is split by `create_dataframes.py` into a csv table of album reviews and a csv table of song 
-lyrics (`/data/data.zip`).
+(DL).
 
 ## Notebooks
 
@@ -62,8 +56,8 @@ For just the discussion, see the corresponding
 For the genre classifier tool (see link at the bottom of page), a number of machine learning models were tuned and
 trained to assign genre tags to text inputs of arbitrary length. As discussed in the machine learning notebook above,
 these models are incorporated into pipelines that also vectorize (and oversample, when training) the data. The
-relevant scripts are located in `analyses/lyrics/scripts` and are configured by the corresponding `.yaml` files in
-`analyses/lyrics`. The `genre_classification_tuning.py` script tunes the models using cross-validation to determine
+relevant scripts are located in `lyrics/scripts/` and are configured by the corresponding `.yaml` files in
+`lyrics/`. The `genre_classification_tuning.py` script tunes the models using cross-validation to determine
 optimal hyperparameters. The `genre_classification_train.py` script is used to train the model, given those optimal
 hyperparameters, and `genre_classification_test.py` can be used to test the pipeline for functionality before
 deploying it to the genre classifier tool.
