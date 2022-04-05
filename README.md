@@ -17,6 +17,9 @@ lyrics (`/data/data.zip`).
 
 The analyses below provide insights on the history of heavy metal albums, and linguistic properties of metal lyrics.
 
+For just the discussion, see the corresponding
+[blog posts](https://pdqnguyen.github.io/projects/heavy-metal-analysis.html) I wrote up on each topic.
+
 
 > [Exploration of artists and album reviews](https://github.com/pdqnguyen/metallyrics/blob/master/reviews/reviews1.ipynb)
 >
@@ -50,7 +53,7 @@ The analyses below provide insights on the history of heavy metal albums, and li
 > and preprocessing steps are discussed, and various machine learning models are compared via cross-validation
 > to demonstrate possible solutions.
 
-> [Word embedding genre classification](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/genre-classification-word-embedding.ipynb)
+> [Word embedding genre classification](https://github.com/pdqnguyen/metallyrics/blob/master/lyrics/notebooks/genre-classification-embedding.ipynb)
 > 
 > An attempt at using GloVe word embedding and convolutional neural network, as well as LSTM, for genre classification.
 
